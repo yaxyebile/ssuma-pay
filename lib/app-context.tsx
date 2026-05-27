@@ -1,0 +1,313 @@
+"use client"
+
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  type ReactNode,
+} from "react"
+import {
+  type User,
+  type Settlement,
+  type ActivityLog,
+  type Billing,
+} from "./store"
+import { supabase } from "./supabase"
+import { toast } from "sonner"
+import { createSettlementAction } from "@/app/actions/settlement-actions"
+import { sendSMSAction } from "@/app/actions/sms-actions"
+
+interface AppContextValue {
+  currentUser: User | null
+  loading: boolean
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
+  signUp: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>
+  logout: () => Promise<void>
+  settlements: Settlement[]
+  addSettlement: (data: any) => Promise<boolean>
+  logs: ActivityLog[]
+  billings: Billing[]
+  addBilling: (data: Omit<Billing, "id" | "createdAt">) => Promise<boolean>
+  updateBillingStatus: (id: string, status: Billing["status"]) => Promise<void>
+  sendSMS: (mobile: string, message: string) => Promise<void>
+  refreshData: () => Promise<void>
+}
+
+const AppContext = createContext<AppContextValue | null>(null)
+
+export function AppProvider({ children }: { children: ReactNode }) {
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [settlements, setSettlements] = useState<Settlement[]>([])
+  const [logs, setLogs] = useState<ActivityLog[]>([])
+  const [billings, setBillings] = useState<Billing[]>([])
+
+  const fetchSettlements = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.from("settlements").select("*").order("time", { ascending: false }).limit(50)
+      if (error) throw error
+      if (data) {
+        setSettlements(data.map((s: any) => ({
+          id: s.id, settId: s.sett_id || s.id, status: s.status, time: s.time, accountId: s.account_id,
+          amount: Number(s.amount), settTranId: s.sett_tran_id, tranHeadId: s.tran_head_id,
+          issuerSettId: s.issuer_sett_id, description: s.description,
+          imageUrl: s.image_url,
+          createdBy: s.created_by, createdByName: s.created_by_name,
+        })))
+      }
+    } catch (e) { console.error("Fetch Error:", e) }
+  }, [])
+
+  const fetchLogs = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.from("activity_logs").select("*").order("time", { ascending: false }).limit(20)
+      if (error) throw error
+      if (data) setLogs(data.map((l: any) => ({ id: l.id, userId: l.user_id, userName: l.user_name, action: l.action, target: l.target, time: l.time })))
+    } catch (e) { console.error("Logs Error:", e) }
+  }, [])
+
+  const fetchBillings = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.from("billings").select("*").order("due_day", { ascending: true })
+      if (error) throw error
+      if (data) {
+        setBillings(data.map((b: any) => ({
+          id: b.id, companyName: b.company_name, amount: Number(b.amount),
+          dueDay: b.due_day, status: b.status, category: b.category,
+          reminderPhone: b.reminder_phone, reminderMessage: b.reminder_message,
+          lastPaidMonth: b.last_paid_month,
+          paidAt: b.paid_at,
+          lastReminderAt: b.last_reminder_at,
+          createdAt: b.created_at
+        })))
+      }
+    } catch (e) {
+      console.warn("Billings fetch (Supabase) skipped or failed, using seed data:", e)
+      const { SEED_BILLINGS } = require("./store")
+      setBillings(SEED_BILLINGS)
+    }
+  }, [])
+
+  const sendSMS = async (mobile: string, message: string) => {
+    const loadingToast = toast.loading(`Sending alert to ${mobile}...`)
+    try {
+      const result = await sendSMSAction(mobile, message)
+      toast.dismiss(loadingToast)
+
+      if (result.success) {
+        toast.success("SMS Alert Sent Successfully")
+      } else {
+        throw new Error(result.error)
+      }
+    } catch (e: any) {
+      toast.dismiss(loadingToast)
+      console.error("SMS Error:", e)
+      toast.error(`SMS Failed: ${e.message}`)
+    }
+  }
+
+  const refreshData = useCallback(async () => {
+    if (!currentUser) return
+    await Promise.all([fetchSettlements(), fetchLogs(), fetchBillings()])
+  }, [currentUser, fetchSettlements, fetchLogs, fetchBillings])
+
+  const syncProfile = async (user: any) => {
+    if (!user) return null
+    try {
+      const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+      if (profile) return profile
+      const newProfile = {
+        id: user.id, email: user.email, name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+        role: (user.email === 'yaxyebile911@gmail.com' || user.email === 'admin@waafipay.com') ? 'admin' : 'staff'
+      }
+      await supabase.from('profiles').insert(newProfile)
+      return newProfile
+    } catch (e) { return null }
+  }
+
+  useEffect(() => {
+    const init = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user) {
+        const profile = await syncProfile(session.user)
+        if (profile) setCurrentUser(profile as any)
+      }
+      setLoading(false)
+    }
+    init()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        const profile = await syncProfile(session.user)
+        if (profile) setCurrentUser(profile as any)
+      } else { setCurrentUser(null); setSettlements([]); setLogs([]) }
+      setLoading(false)
+    })
+    return () => { subscription.unsubscribe() }
+  }, [])
+
+  useEffect(() => { if (currentUser) refreshData() }, [currentUser, refreshData])
+
+  const login = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) { toast.error(error.message); return { success: false, error: error.message } }
+    return { success: true }
+  }
+
+  const signUp = async (email: string, password: string, name: string) => {
+    const { error } = await supabase.auth.signUp({ email, password, options: { data: { name } } })
+    if (error) { toast.error(error.message); return { success: false, error: error.message } }
+    return { success: true }
+  }
+
+  const addSettlement = async (data: any) => {
+    if (!currentUser) return false
+    const loadingToast = toast.loading("Connecting to High-Speed Suuma Channel...")
+
+    try {
+      const result = await createSettlementAction({
+        ...data,
+        userId: currentUser.id,
+        userName: currentUser.name
+      })
+
+      if (!result.success) throw new Error(result.error)
+
+      await refreshData()
+      toast.dismiss(loadingToast)
+      toast.success(`Success! ${data.settId} is securely logged.`)
+      return true
+    } catch (e: any) {
+      toast.dismiss(loadingToast)
+      console.error("Submission Failure:", e)
+      toast.error(`Rejected: ${e.message || 'Server timeout'}`)
+      return false
+    }
+  }
+
+  const addBilling = async (data: any) => {
+    const loadingToast = toast.loading("Saving billing record...")
+    try {
+      const { error } = await supabase.from("billings").insert([{
+        company_name: data.companyName,
+        amount: data.amount,
+        due_day: data.dueDay,
+        status: data.status,
+        category: data.category,
+        reminder_phone: data.reminderPhone,
+        reminder_message: data.reminderMessage,
+        last_paid_month: data.status === "paid" ? new Date().toISOString().slice(0, 7) : data.lastPaidMonth
+      }])
+      if (error) throw error
+      await fetchBillings()
+      toast.dismiss(loadingToast)
+      toast.success("Billing record saved.")
+      return true
+    } catch (e: any) {
+      toast.dismiss(loadingToast)
+      const newBilling = { ...data, id: Math.random().toString(), createdAt: new Date().toISOString() }
+      setBillings(prev => [...prev, newBilling])
+      toast.success("Saved to local session.")
+      return true
+    }
+  }
+
+  const updateBillingStatus = async (id: string, status: any) => {
+    const now = new Date().toISOString()
+    const currentMonth = now.slice(0, 7)
+    try {
+      const { error } = await supabase.from("billings").update({
+        status,
+        last_paid_month: status === "paid" ? currentMonth : undefined,
+        paid_at: status === "paid" ? now : null
+      }).eq("id", id)
+      if (error) throw error
+      await fetchBillings()
+    } catch (e) {
+      setBillings(prev => prev.map(b => b.id === id ? {
+        ...b,
+        status,
+        lastPaidMonth: status === "paid" ? currentMonth : b.lastPaidMonth,
+        paidAt: status === "paid" ? now : undefined
+      } : b))
+    }
+  }
+
+  // Use a ref to prevent multiple simultaneous checks or redundant triggers
+  const isCheckingRef = useRef(false)
+
+  const checkRecurringBillings = useCallback(async () => {
+    if (isCheckingRef.current) return
+    isCheckingRef.current = true
+
+    const today = new Date()
+    const currentMonth = today.toISOString().slice(0, 7)
+
+    try {
+      for (const bill of billings) {
+        const needsToPayThisMonth = bill.lastPaidMonth !== currentMonth
+        const dueDate = new Date(today.getFullYear(), today.getMonth(), bill.dueDay)
+        const diffHours = (today.getTime() - dueDate.getTime()) / (1000 * 60 * 60)
+        const withinReminderWindow = diffHours >= -12
+
+        if (needsToPayThisMonth && today.getDate() >= bill.dueDay && bill.status === "paid") {
+          await updateBillingStatus(bill.id, "unpaid")
+        }
+
+        if (needsToPayThisMonth && withinReminderWindow && bill.status === "unpaid") {
+          const lastSent = bill.lastReminderAt ? new Date(bill.lastReminderAt) : null
+          const hoursSinceLast = lastSent ? (today.getTime() - lastSent.getTime()) / (1000 * 60 * 60) : 999
+
+          if (hoursSinceLast >= 6) {
+            console.log(`Aggressive trigger: Sending SMS for ${bill.companyName}`)
+            const result = await sendSMSAction(bill.reminderPhone, bill.reminderMessage)
+
+            if (result.success) {
+              const nowISO = new Date().toISOString()
+              await supabase.from("billings").update({ last_reminder_at: nowISO }).eq("id", bill.id)
+              // Update state locally without re-triggering everything
+              setBillings(prev => prev.map(b => b.id === bill.id ? { ...b, lastReminderAt: nowISO } : b))
+            }
+          }
+        }
+      }
+    } finally {
+      isCheckingRef.current = false
+    }
+  }, [billings, updateBillingStatus])
+
+  useEffect(() => {
+    if (billings.length > 0) {
+      checkRecurringBillings()
+      const interval = setInterval(checkRecurringBillings, 1800000)
+      return () => clearInterval(interval)
+    }
+    // Only re-run when billings length changes (initial load), not on every data change
+  }, [billings.length])
+
+  const logout = async () => {
+    await supabase.auth.signOut()
+    setCurrentUser(null)
+    window.location.href = "/"
+  }
+
+  return (
+    <AppContext.Provider value={{
+      currentUser, loading, login, signUp, logout,
+      settlements, addSettlement, logs,
+      billings, addBilling, updateBillingStatus,
+      sendSMS,
+      refreshData
+    }}>
+      {children}
+    </AppContext.Provider>
+  )
+}
+
+export const useApp = () => {
+  const ctx = useContext(AppContext)
+  if (!ctx) throw new Error("useApp must be used inside AppProvider")
+  return ctx
+}
