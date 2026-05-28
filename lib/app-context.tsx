@@ -14,6 +14,7 @@ import {
   type Settlement,
   type ActivityLog,
   type Billing,
+  SEED_BILLINGS
 } from "./store"
 import { supabase } from "./supabase"
 import { toast } from "sonner"
@@ -86,7 +87,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     } catch (e) {
       console.warn("Billings fetch (Supabase) skipped or failed, using seed data:", e)
-      const { SEED_BILLINGS } = require("./store")
       setBillings(SEED_BILLINGS)
     }
   }, [])
@@ -117,35 +117,68 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const syncProfile = async (user: any) => {
     if (!user) return null
     try {
-      const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-      if (profile) return profile
-      const newProfile = {
-        id: user.id, email: user.email, name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
-        role: (user.email === 'yaxyebile911@gmail.com' || user.email === 'admin@waafipay.com') ? 'admin' : 'staff'
+      const targetRole = (user.email === 'yaxyebile91@gmail.com' || user.email === 'admin@waafipay.com') ? 'admin' : 'staff'
+      const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle()
+
+      if (profile) {
+        // Force update if role should be admin but isn't, or name changed
+        const needsRoleUpdate = targetRole === 'admin' && profile.role !== 'admin'
+        const needsNameUpdate = user.user_metadata?.name && profile.name !== user.user_metadata.name
+
+        if (needsRoleUpdate || needsNameUpdate) {
+          const updates: any = {}
+          if (needsRoleUpdate) updates.role = 'admin'
+          if (needsNameUpdate) updates.name = user.user_metadata.name
+
+          await supabase.from("profiles").update(updates).eq("id", user.id)
+          return { ...profile, ...updates }
+        }
+        return profile
       }
-      await supabase.from('profiles').insert(newProfile)
+
+      const newProfile = {
+        id: user.id,
+        email: user.email,
+        name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+        role: targetRole
+      }
+      await supabase.from('profiles').upsert(newProfile)
       return newProfile
-    } catch (e) { return null }
+    } catch (e) {
+      console.error("Profile Sync Error:", e)
+      return null
+    }
   }
 
   useEffect(() => {
+    let mounted = true
     const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.user) {
-        const profile = await syncProfile(session.user)
-        if (profile) setCurrentUser(profile as any)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user && mounted) {
+          const profile = await syncProfile(session.user)
+          if (profile && mounted) setCurrentUser(profile as any)
+        }
+      } catch (e) {
+        console.error("Auth Init Error:", e)
+      } finally {
+        if (mounted) setLoading(false)
       }
-      setLoading(false)
     }
     init()
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         const profile = await syncProfile(session.user)
-        if (profile) setCurrentUser(profile as any)
-      } else { setCurrentUser(null); setSettlements([]); setLogs([]) }
-      setLoading(false)
+        if (profile && mounted) setCurrentUser(profile as any)
+      } else if (mounted) {
+        setCurrentUser(null); setSettlements([]); setLogs([])
+      }
+      if (mounted) setLoading(false)
     })
-    return () => { subscription.unsubscribe() }
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   useEffect(() => { if (currentUser) refreshData() }, [currentUser, refreshData])

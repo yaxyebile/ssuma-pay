@@ -15,8 +15,8 @@ export function DashboardView() {
   const { settlements, currentUser } = useApp()
 
   const totalVolume = settlements.reduce((sum, s) => sum + s.amount, 0)
-  const pendingAmount = settlements.filter(s => s.status === 'Pending').reduce((sum, s) => sum + s.amount, 0)
-  const completedCount = settlements.filter(s => s.status === 'Completed').length
+  const pendingAmount = settlements.filter(s => s.status === 'pending').reduce((sum, s) => sum + s.amount, 0)
+  const completedCount = settlements.filter(s => s.status === 'completed').length
 
   const chartData = [
     { name: 'Mon', value: 4000 }, { name: 'Tue', value: 3000 },

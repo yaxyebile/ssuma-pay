@@ -139,91 +139,53 @@ export function SettlementsView() {
 
       {/* Entry Modal */}
       {showAddForm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900/40 backdrop-blur-md p-2 md:p-4">
-          <div className="bg-white rounded-[2rem] md:rounded-[3rem] shadow-2xl w-full max-w-2xl max-h-[95vh] overflow-hidden border border-orange-100 animate-in zoom-in-95 duration-300 flex flex-col">
-            <div className="px-6 py-6 md:px-10 md:py-10 bg-orange-50/50 border-b border-orange-100 flex justify-between items-center shrink-0">
-              <h3 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">New Entry</h3>
-              <button onClick={() => setShowAddForm(false)} className="h-10 w-10 bg-white rounded-xl border border-orange-100 flex items-center justify-center"><X className="h-5 w-5" /></button>
+        <div className="fixed inset-0 z-[200] flex items-end md:items-center justify-center bg-gray-900/60 backdrop-blur-md">
+          <div className="bg-white w-full md:max-w-2xl rounded-t-[2.5rem] md:rounded-[3rem] shadow-2xl overflow-hidden border-t md:border border-orange-100 animate-in slide-in-from-bottom md:zoom-in-95 duration-500 max-h-[92vh] flex flex-col">
+            <div className="px-8 py-8 bg-orange-50/50 border-b border-orange-100 flex justify-between items-center shrink-0">
+              <h3 className="text-2xl font-black text-gray-900 tracking-tight">New Settlement</h3>
+              <button onClick={() => setShowAddForm(false)} className="h-10 w-10 bg-white rounded-xl border border-orange-100 flex items-center justify-center text-gray-400 hover:text-orange-600 transition-all"><X className="h-5 w-5" /></button>
             </div>
-            <div className="overflow-y-auto flex-1 custom-scrollbar">
-              <form onSubmit={handleSubmit} className="p-6 md:p-10 grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+            <div className="overflow-y-auto p-8 custom-scrollbar">
+              <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-1"><label className="text-[10px] font-black text-gray-400">REFERENCE</label><input required value={formData.settId} onChange={e => setFormData({ ...formData, settId: e.target.value })} placeholder="ST-..." className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-black outline-none focus:bg-white focus:border-orange-500 transition-all" /></div>
                 <div className="space-y-1"><label className="text-[10px] font-black text-gray-400">AMOUNT</label><input required type="number" step="0.01" value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} placeholder="0.00" className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-black outline-none focus:bg-white focus:border-orange-500 transition-all" /></div>
                 <div className="space-y-1"><label className="text-[10px] font-black text-gray-400">ACCOUNT</label><input required value={formData.accountId} onChange={e => setFormData({ ...formData, accountId: e.target.value })} placeholder="AC..." className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-black outline-none focus:bg-white focus:border-orange-500 transition-all" /></div>
                 <div className="space-y-1"><label className="text-[10px] font-black text-gray-400">STATUS</label><select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value as any })} className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-black outline-none focus:bg-white focus:border-orange-500 transition-all"><option value="pending">Pending</option><option value="completed">Completed</option><option value="failed">Failed</option></select></div>
-                <div className="md:col-span-2 flex flex-col items-center justify-center space-y-4 py-6 border-b border-orange-50 mb-4">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Attachment Avatar</label>
+
+                <div className="md:col-span-2 flex flex-col items-center justify-center space-y-4 py-4 border-b border-orange-50 mb-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Evidence Receipt</label>
                   <div className="relative group">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0]
-                        if (!file) return
-                        const loadingToast = toast.loading("Optimizing high-res image...")
-                        try {
-                          const reader = new FileReader()
-                          reader.onload = (event) => {
-                            const img = new Image()
-                            img.onload = () => {
-                              const canvas = document.createElement('canvas')
-                              let width = img.width
-                              let height = img.height
-                              const MAX_SIZE = 800 // Resize to 800px max
-                              if (width > height && width > MAX_SIZE) {
-                                height *= MAX_SIZE / width; width = MAX_SIZE
-                              } else if (height > MAX_SIZE) {
-                                width *= MAX_SIZE / height; height = MAX_SIZE
-                              }
-                              canvas.width = width
-                              canvas.height = height
-                              const ctx = canvas.getContext('2d')
-                              ctx?.drawImage(img, 0, 0, width, height)
-                              const optimizedData = canvas.toDataURL('image/jpeg', 0.6) // 60% quality JPEG
-                              setFormData({ ...formData, imageUrl: optimizedData })
-                              toast.success("Image optimized and ready")
-                              toast.dismiss(loadingToast)
-                            }
-                            img.src = event.target?.result as string
+                    <input type="file" accept="image/*" onChange={async (e) => {
+                      const file = e.target.files?.[0]; if (!file) return;
+                      const loadingToast = toast.loading("Optimizing...");
+                      try {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          const img = new Image();
+                          img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            let width = img.width, height = img.height;
+                            const MAX = 800;
+                            if (width > height && width > MAX) { height *= MAX / width; width = MAX; }
+                            else if (height > MAX) { width *= MAX / height; height = MAX; }
+                            canvas.width = width; canvas.height = height;
+                            canvas.getContext('2d')?.drawImage(img, 0, 0, width, height);
+                            setFormData({ ...formData, imageUrl: canvas.toDataURL('image/jpeg', 0.6) });
+                            toast.success("Ready"); toast.dismiss(loadingToast);
                           }
-                          reader.readAsDataURL(file)
-                        } catch (err) {
-                          toast.error("Optimization failed")
-                          toast.dismiss(loadingToast)
+                          img.src = event.target?.result as string;
                         }
-                      }}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 rounded-full"
-                    />
-
-                    {/* Avatar Circle */}
-                    <div className={`h-36 w-36 rounded-full border-4 ${formData.imageUrl ? 'border-orange-500 shadow-2xl shadow-orange-500/20' : 'border-dashed border-gray-200'} bg-gray-50 flex items-center justify-center overflow-hidden transition-all duration-500 group-hover:scale-110 relative`}>
-                      {formData.imageUrl ? (
-                        <img src={formData.imageUrl} alt="Receipt Avatar" className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex flex-col items-center gap-2 text-gray-400">
-                          <Plus className="h-8 w-8" />
-                          <span className="text-[10px] font-black tracking-widest uppercase">Select Receipt</span>
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-orange-600/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-300">
-                        <Plus className="h-10 w-10 text-white" />
-                      </div>
+                        reader.readAsDataURL(file);
+                      } catch (err) { toast.error("Failed"); toast.dismiss(loadingToast); }
+                    }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 rounded-full" />
+                    <div className={`h-28 w-28 rounded-full border-4 ${formData.imageUrl ? 'border-orange-500 shadow-lg' : 'border-dashed border-gray-200'} flex items-center justify-center overflow-hidden transition-all group-hover:scale-105 relative`}>
+                      {formData.imageUrl ? <img src={formData.imageUrl} className="h-full w-full object-cover" /> : <Plus className="h-6 w-6 text-gray-300" />}
                     </div>
-
-                    {formData.imageUrl && (
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setFormData({ ...formData, imageUrl: "" }) }}
-                        className="absolute bottom-1 right-1 z-20 bg-red-600 text-white rounded-full p-2 shadow-xl border-4 border-white hover:scale-110 transition-transform"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
                   </div>
-                  <p className="text-[10px] font-bold text-gray-400 italic">Square or Circle receipt capture recommended</p>
                 </div>
+
                 <div className="md:col-span-2 space-y-1"><label className="text-[10px] font-black text-gray-400">NOTES</label><textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} rows={2} className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-black outline-none focus:bg-white focus:border-orange-500 transition-all resize-none" /></div>
-                <div className="md:col-span-2"><button type="submit" className="w-full bg-orange-600 text-white py-5 rounded-2xl font-black shadow-xl shadow-orange-600/20 active:scale-95 transition-all">Submit Settlement Entry</button></div>
+                <div className="md:col-span-2 pb-6"><button type="submit" className="w-full bg-orange-600 text-white py-5 rounded-2xl font-black shadow-xl shadow-orange-600/20 active:scale-95 transition-all">Submit Settlement</button></div>
               </form>
             </div>
           </div>
