@@ -117,64 +117,119 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const syncProfile = async (user: any) => {
     if (!user) return null
     try {
-      const targetRole = (user.email === 'yaxyebile91@gmail.com' || user.email === 'admin@waafipay.com') ? 'admin' : 'staff'
-      const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle()
+      // Add a small timeout for profile sync too
+      const profilePromise = (async () => {
+        const targetRole = (user.email === 'yaxyebile91@gmail.com' || user.email === 'admin@waafipay.com') ? 'admin' : 'staff'
+        const { data: profile, error: fetchError } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle()
 
-      if (profile) {
-        // Force update if role should be admin but isn't, or name changed
-        const needsRoleUpdate = targetRole === 'admin' && profile.role !== 'admin'
-        const needsNameUpdate = user.user_metadata?.name && profile.name !== user.user_metadata.name
+        if (fetchError) throw fetchError
 
-        if (needsRoleUpdate || needsNameUpdate) {
-          const updates: any = {}
-          if (needsRoleUpdate) updates.role = 'admin'
-          if (needsNameUpdate) updates.name = user.user_metadata.name
+        if (profile) {
+          const needsRoleUpdate = targetRole === 'admin' && profile.role !== 'admin'
+          const needsNameUpdate = user.user_metadata?.name && profile.name !== user.user_metadata.name
 
-          await supabase.from("profiles").update(updates).eq("id", user.id)
-          return { ...profile, ...updates }
+          if (needsRoleUpdate || needsNameUpdate) {
+            const updates: any = {}
+            if (needsRoleUpdate) updates.role = 'admin'
+            if (needsNameUpdate) updates.name = user.user_metadata.name
+
+            await supabase.from("profiles").update(updates).eq("id", user.id)
+            return { ...profile, ...updates }
+          }
+          return profile
         }
-        return profile
-      }
 
-      const newProfile = {
+        const newProfile = {
+          id: user.id,
+          email: user.email,
+          name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+          role: targetRole
+        }
+        const { error: upsertError } = await supabase.from('profiles').upsert(newProfile)
+        if (upsertError) throw upsertError
+
+        return newProfile
+      })()
+
+      // Race against a 3 second timeout for profile sync
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Profile sync timeout")), 3000))
+
+      return await Promise.race([profilePromise, timeoutPromise]) as any
+    } catch (e) {
+      console.error("Profile Sync Error:", e)
+      // Fallback to a basic profile if sync fails so the user can at least see the app
+      return {
         id: user.id,
         email: user.email,
         name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
-        role: targetRole
+        role: (user.email === 'yaxyebile91@gmail.com' || user.email === 'admin@waafipay.com') ? 'admin' : 'staff'
       }
-      await supabase.from('profiles').upsert(newProfile)
-      return newProfile
-    } catch (e) {
-      console.error("Profile Sync Error:", e)
-      return null
     }
   }
 
   useEffect(() => {
     let mounted = true
+
     const init = async () => {
+      // Add a timeout to prevent infinite loading if Supabase hangs
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Auth timeout")), 5000)
+      )
+
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        // Race the session check against a timeout
+        const { data: { session } } = await Promise.race([
+          supabase.auth.getSession(),
+          timeoutPromise as Promise<any>
+        ])
+
         if (session?.user && mounted) {
           const profile = await syncProfile(session.user)
           if (profile && mounted) setCurrentUser(profile as any)
         }
       } catch (e) {
-        console.error("Auth Init Error:", e)
+        console.error("Auth Init Error or Timeout:", e)
+        // If we timeout or error, we should check if there's a corrupted token
+        // and potentially clear it to allow the app to load in logged-out state
+        const isTimeout = e instanceof Error && e.message === "Auth timeout"
+        if (isTimeout) {
+          console.warn("Auth timed out. Clearing potential broken session.")
+          // Removing the specific token mentioned by user
+          try {
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i)
+              if (key?.includes('auth-token')) {
+                localStorage.removeItem(key)
+              }
+            }
+          } catch (storageErr) {
+            console.error("Failed to clear localStorage:", storageErr)
+          }
+        }
       } finally {
         if (mounted) setLoading(false)
       }
     }
+
     init()
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        const profile = await syncProfile(session.user)
-        if (profile && mounted) setCurrentUser(profile as any)
-      } else if (mounted) {
-        setCurrentUser(null); setSettlements([]); setLogs([])
+      if (!mounted) return
+
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (session?.user) {
+          const profile = await syncProfile(session.user)
+          if (profile && mounted) setCurrentUser(profile as any)
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setCurrentUser(null)
+        setSettlements([])
+        setLogs([])
       }
+
       if (mounted) setLoading(false)
     })
+
     return () => {
       mounted = false
       subscription.unsubscribe()
@@ -321,9 +376,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [billings.length])
 
   const logout = async () => {
-    await supabase.auth.signOut()
-    setCurrentUser(null)
-    window.location.href = "/"
+    try {
+      await supabase.auth.signOut()
+    } catch (e) {
+      console.error("Sign out error:", e)
+    } finally {
+      // Always clear local state even if server-side sign out fails
+      setCurrentUser(null)
+      // Clear any potential leftover tokens in localStorage
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key?.includes('auth-token')) {
+            localStorage.removeItem(key)
+          }
+        }
+      } catch (e) { }
+      window.location.href = "/"
+    }
   }
 
   return (
