@@ -116,29 +116,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const syncProfile = async (user: any) => {
     if (!user) return null
+    console.log("Starting syncProfile for:", user.email)
+
     try {
-      // Add a small timeout for profile sync too
       const profilePromise = (async () => {
         const targetRole = (user.email === 'yaxyebile91@gmail.com' || user.email === 'admin@waafipay.com') ? 'admin' : 'staff'
+
+        console.log("Fetching profile from Supabase...")
         const { data: profile, error: fetchError } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle()
 
-        if (fetchError) throw fetchError
+        if (fetchError) {
+          console.error("Supabase Profile Fetch Error:", fetchError)
+          throw fetchError
+        }
 
         if (profile) {
+          console.log("Profile found:", profile.role)
           const needsRoleUpdate = targetRole === 'admin' && profile.role !== 'admin'
           const needsNameUpdate = user.user_metadata?.name && profile.name !== user.user_metadata.name
 
           if (needsRoleUpdate || needsNameUpdate) {
+            console.log("Profile needs update. Applying...")
             const updates: any = {}
             if (needsRoleUpdate) updates.role = 'admin'
             if (needsNameUpdate) updates.name = user.user_metadata.name
 
-            await supabase.from("profiles").update(updates).eq("id", user.id)
+            const { error: updateError } = await supabase.from("profiles").update(updates).eq("id", user.id)
+            if (updateError) console.error("Profile Update Error:", updateError)
             return { ...profile, ...updates }
           }
           return profile
         }
 
+        console.log("No profile found. Creating new...")
         const newProfile = {
           id: user.id,
           email: user.email,
@@ -146,15 +156,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
           role: targetRole
         }
         const { error: upsertError } = await supabase.from('profiles').upsert(newProfile)
-        if (upsertError) throw upsertError
+        if (upsertError) {
+          console.error("Profile Upsert Error:", upsertError)
+          throw upsertError
+        }
 
+        console.log("New profile created successfully")
         return newProfile
       })()
 
-      // Race against a 3 second timeout for profile sync
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Profile sync timeout")), 3000))
+      // Race against a 30 second timeout for profile sync
+      const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve("timeout"), 30000))
 
-      return await Promise.race([profilePromise, timeoutPromise]) as any
+      const result = await Promise.race([profilePromise, timeoutPromise])
+
+      if (result === "timeout") {
+        console.error("CRITICAL: Profile sync timed out after 30s. Using fallback.")
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+          role: (user.email === 'yaxyebile91@gmail.com' || user.email === 'admin@waafipay.com') ? 'admin' : 'staff'
+        }
+      }
+
+      console.log("Profile sync completed successfully")
+      return result as any
     } catch (e) {
       console.error("Profile Sync Error:", e)
       // Fallback to a basic profile if sync fails so the user can at least see the app

@@ -14,10 +14,13 @@ import {
   User,
   Shield,
   Zap,
-  CreditCard
+  CreditCard,
+  Trophy,
+  Plus,
+  Users
 } from "lucide-react"
 
-type Page = "dashboard" | "settlements" | "activity" | "reports" | "users" | "admin" | "billing"
+type Page = "dashboard" | "settlements" | "activity" | "reports" | "users" | "admin" | "billing" | "active-matches" | "add-match" | "teams"
 
 interface NavItem {
   id: Page
@@ -28,6 +31,9 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
+  { id: "active-matches", label: "Active Matches", icon: <Trophy className="h-5 w-5" /> },
+  { id: "add-match", label: "Add New Match", icon: <Plus className="h-5 w-5" /> },
+  { id: "teams", label: "Teams Library", icon: <Users className="h-5 w-5" /> },
   { id: "settlements", label: "Settlements", icon: <List className="h-5 w-5" /> },
   { id: "activity", label: "Activity Log", icon: <Activity className="h-5 w-5" /> },
   { id: "reports", label: "Reports", icon: <BarChart2 className="h-5 w-5" /> },
@@ -58,6 +64,9 @@ export function AppShell({ children }: AppShellProps) {
     users: "Users",
     admin: "Admin",
     billing: "Monthly Billings",
+    "active-matches": "Scheduled Matches",
+    "add-match": "Deploy New Match",
+    teams: "Teams Database",
   }
 
   return (

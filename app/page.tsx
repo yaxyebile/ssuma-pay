@@ -9,6 +9,7 @@ import { ReportsView } from "@/components/reports-view"
 import { LoginPage } from "@/components/login-page"
 import { AdminManagementView } from "@/components/admin-mgmt-view"
 import { BillingView } from "@/components/billing-view"
+import { MatchesView } from "@/components/matches/matches-view"
 
 export default function Home() {
   const { currentUser, loading, refreshData } = useApp()
@@ -36,6 +37,9 @@ export default function Home() {
         if (activePage === "activity") return <ActivityLogView />
         if (activePage === "reports") return <ReportsView />
         if (activePage === "billing") return <BillingView />
+        if (activePage === "active-matches" || activePage === "add-match" || activePage === "teams") {
+          return <MatchesView initialTab={activePage === "teams" ? "teams" : "matches"} initialView={activePage === "add-match" ? "form" : "list"} />
+        }
         if (activePage === "users" || activePage === "admin") return <AdminManagementView />
         return <DashboardView />
       }}
