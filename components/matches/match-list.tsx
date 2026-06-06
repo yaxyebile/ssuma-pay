@@ -51,6 +51,11 @@ const CAT5_OPTIONS = [
     { value: "bein3", label: "BEIN 3" },
     { value: "bein4", label: "BEIN 4" },
     { value: "bein5", label: "BEIN 5" },
+    { value: "bein6", label: "BEIN 6" },
+    { value: "bein7", label: "BEIN 7" },
+    { value: "bein8", label: "BEIN 8" },
+    { value: "bein9", label: "BEIN 9" },
+    { value: "bein10", label: "BEIN 10" },
 ]
 
 export function MatchList({ matches, loading, onRefresh, onEdit }: MatchListProps) {
