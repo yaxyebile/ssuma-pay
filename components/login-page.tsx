@@ -181,22 +181,6 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
             </button>
           </form>
 
-          <div className="mt-8 text-center">
-            <button
-              onClick={() => {
-                setMode(mode === "signin" ? "signup" : "signin")
-                setError("")
-              }}
-              className="text-sm text-gray-500 hover:text-orange-600 font-bold transition-colors"
-            >
-              {mode === "signin"
-                ? "Ma haysatid koonto? "
-                : "Hore miyaad u diwaangashnayd? "}
-              <span className="text-orange-600 underline underline-offset-4 font-black">
-                {mode === "signin" ? "Diiwaangeli" : "Soo Gal"}
-              </span>
-            </button>
-          </div>
         </div>
       </div>
     </div>
