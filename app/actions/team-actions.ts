@@ -1,3 +1,5 @@
+"use server"
+
 const API_KEY = process.env.MATCHES_API_KEY
 const TEAMS_URL = "https://zentova.net/teams.php"
 
@@ -10,7 +12,6 @@ const BROWSER_HEADERS = {
 }
 
 export async function fetchTeams() {
-    "use server"
     try {
         const response = await fetch(TEAMS_URL, {
             method: 'POST',
@@ -38,7 +39,6 @@ export async function fetchTeams() {
 }
 
 export async function addTeam(name: string, logo: string) {
-    "use server"
     try {
         const response = await fetch(TEAMS_URL, {
             method: 'POST',
@@ -57,7 +57,6 @@ export async function addTeam(name: string, logo: string) {
 }
 
 export async function editTeam(id: number | string, name: string, logo: string) {
-    "use server"
     try {
         const response = await fetch(TEAMS_URL, {
             method: 'POST',

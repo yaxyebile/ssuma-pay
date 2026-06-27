@@ -30,7 +30,8 @@ export async function checkStreamsAction(): Promise<StreamStatus[]> {
             const response = await fetch(url, {
                 cache: 'no-store',
                 headers: {
-                    'User-Agent': 'Mozilla/5.0'
+                    'User-Agent': 'Mozilla/5.0',
+                    'x-stream-auth': 'ROrYU8s6pbmt5LrBnwmRmMcf7V8X6tod'
                 },
                 next: { revalidate: 0 }
             })
@@ -80,7 +81,10 @@ export async function fetchStreamContentAction(url: string): Promise<string> {
     try {
         const response = await fetch(url, {
             cache: 'no-store',
-            headers: { 'User-Agent': 'Mozilla/5.0' }
+            headers: {
+                'User-Agent': 'Mozilla/5.0',
+                'x-stream-auth': 'ROrYU8s6pbmt5LrBnwmRmMcf7V8X6tod'
+            }
         })
         return await response.text()
     } catch (error) {
