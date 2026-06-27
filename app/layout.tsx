@@ -9,8 +9,8 @@ const geist = Geist({ subsets: ["latin"], variable: '--font-geist' })
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: '--font-geist-mono' })
 
 export const metadata: Metadata = {
-  title: 'Waafi Pay – Settlement Management',
-  description: 'Professional settlement management and accounting system for Waafi Pay.',
+  title: 'Suuma Admin – Settlement Management',
+  description: 'Professional settlement management and accounting system for Suuma.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

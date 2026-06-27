@@ -57,7 +57,7 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
           <div className="h-12 w-12 bg-white rounded-2xl flex items-center justify-center shadow-2xl">
             <span className="text-[#F15A24] font-black text-2xl">S</span>
           </div>
-          <span className="text-2xl font-black tracking-tight">Suuma Pay</span>
+          <span className="text-2xl font-black tracking-tight">Suuma Admin</span>
         </div>
 
         <div className="relative z-10 animate-in slide-in-from-bottom-8 duration-1000">
@@ -65,7 +65,7 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
             Maamul Lacagahaaga Si Casri Ah.
           </h2>
           <p className="mt-6 text-lg text-white/80 leading-relaxed max-w-lg font-medium">
-            Suuma Pay waa system-kii ugu horeeyey ee Somali ah oo hal meel isugu keenaya settlements-ka, warbixinada, iyo maamulka shaqaalaha.
+            Suuma Admin waa system-kii ugu horeeyey ee Somali ah oo hal meel isugu keenaya settlements-ka, warbixinada, iyo maamulka shaqaalaha.
           </p>
           <div className="mt-10 flex gap-4">
             <div className="px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20 text-xs font-bold uppercase tracking-widest">Enterprise Ready</div>
@@ -74,7 +74,7 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
         </div>
 
         <div className="relative z-10 flex justify-between items-center text-white/60 text-xs font-bold uppercase tracking-widest animate-in slide-in-from-right-8 duration-1000">
-          <span>&copy; {new Date().getFullYear()} Suuma Pay Global</span>
+          <span>&copy; {new Date().getFullYear()} Suuma Admin Global</span>
           <div className="flex gap-4">
             <span className="hover:text-white cursor-pointer transition-colors">Privacy</span>
             <span className="hover:text-white cursor-pointer transition-colors">Terms</span>
@@ -89,7 +89,7 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
             <div className="h-8 w-8 bg-orange-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-black text-sm">S</span>
             </div>
-            <span className="font-black text-orange-600">Suuma Pay</span>
+            <span className="font-black text-orange-600">Suuma Admin</span>
           </div>
         </div>
 

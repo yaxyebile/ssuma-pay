@@ -102,7 +102,7 @@ export function AppShell({ children }: AppShellProps) {
             </div>
             <div>
               <p className="text-lg font-black text-orange-600 tracking-tight leading-none uppercase">
-                Suuma Pay
+                Suuma Admin
               </p>
               <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-1">
                 Settlement Core
