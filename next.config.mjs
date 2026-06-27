@@ -16,7 +16,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://play-lh.googleusercontent.com; connect-src 'self' https://www.somapi.store https://*.supabase.co;"
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://play-lh.googleusercontent.com https://zentova.net; connect-src 'self' https://www.somapi.store https://*.supabase.co https://zentova.net;"
           },
         ],
       },
