@@ -12,6 +12,7 @@ import { BillingView } from "@/components/billing-view"
 import { MatchesView } from "@/components/matches/matches-view"
 import { OrdersView } from "@/components/orders-view"
 import { StreamMonitorView } from "@/components/stream-monitor-view"
+import { IPTVView } from "@/components/iptv-view"
 
 export default function Home() {
   const { currentUser, loading, refreshData } = useApp()
@@ -45,6 +46,7 @@ export default function Home() {
         if (activePage === "users" || activePage === "admin") return <AdminManagementView />
         if (activePage === "orders") return <OrdersView />
         if (activePage === "streams") return <StreamMonitorView />
+        if (activePage === "iptv") return <IPTVView />
         return <DashboardView />
       }}
     </AppShell>

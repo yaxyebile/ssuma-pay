@@ -19,10 +19,11 @@ import {
   Plus,
   Users,
   Package,
-  Monitor
+  Monitor,
+  Satellite
 } from "lucide-react"
 
-type Page = "dashboard" | "settlements" | "activity" | "reports" | "users" | "admin" | "billing" | "active-matches" | "add-match" | "teams" | "orders" | "streams"
+type Page = "dashboard" | "settlements" | "activity" | "reports" | "users" | "admin" | "billing" | "active-matches" | "add-match" | "teams" | "orders" | "streams" | "iptv"
 
 interface NavItem {
   id: Page
@@ -42,6 +43,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "billing", label: "Monthly Billing", icon: <CreditCard className="h-5 w-5" /> },
   { id: "orders", label: "Api Orders", icon: <Package className="h-5 w-5" /> },
   { id: "streams", label: "Stream Monitor", icon: <Monitor className="h-5 w-5" /> },
+  { id: "iptv", label: "IPTV Channels", icon: <Satellite className="h-5 w-5" /> },
   { id: "users", label: "Users", icon: <User className="h-5 w-5" />, adminOnly: true },
   { id: "admin", label: "Admin Panel", icon: <Shield className="h-5 w-5" />, adminOnly: true },
 ]
@@ -73,6 +75,7 @@ export function AppShell({ children }: AppShellProps) {
     teams: "Teams Database",
     orders: "Api Distribution Hub",
     streams: "Live Grid Intelligence",
+    iptv: "IPTV Stream Hub",
   }
 
   return (
