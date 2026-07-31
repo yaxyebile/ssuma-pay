@@ -372,7 +372,6 @@ export function IPTVView() {
                                 autoPlay
                                 className="w-full h-full"
                             />
-                            <PlayerInit channel={playingChannel} videoRef={videoRef} />
                         </div>
 
                         <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
