@@ -39,13 +39,11 @@ async function requireAdmin() {
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!supabaseUrl || !serviceRoleKey) {
-    return { response: jsonError("Push notification database access is not configured on the server.", 503) } as const
-  }
-
-  const database = createSupabaseClient(supabaseUrl, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
+  const database = supabaseUrl && serviceRoleKey
+    ? createSupabaseClient(supabaseUrl, serviceRoleKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      })
+    : null
 
   return { user, database } as const
 }
@@ -53,6 +51,9 @@ async function requireAdmin() {
 export async function GET() {
   const access = await requireAdmin()
   if ("response" in access) return access.response
+  if (!access.database) {
+    return jsonError("Push notification database access is not configured on the server.", 503)
+  }
 
   const { data: campaigns, error: campaignError } = await access.database
     .from("push_notification_campaign_stats")
@@ -147,49 +148,49 @@ export async function POST(request: NextRequest) {
     return jsonError("Push notification API key is not configured on the server.", 503)
   }
 
-  const { data: campaign, error: insertError } = await access.database
-    .from("push_notification_campaigns")
-    .insert({
-      title,
-      body,
-      click_url: clickUrl ?? null,
-      created_by: access.user.id,
-      status: "sending",
-    })
-    .select("id")
-    .single()
+  let campaignId: string | undefined
+  let trackedDeviceCount = 0
+  let analyticsWarning: string | undefined
 
-  if (insertError || !campaign) {
-    return jsonError(
-      "Could not create notification history. Apply the push notification analytics migration first.",
-      503,
-    )
-  }
-
-  const { data: trackedDeviceCount, error: snapshotError } = await access.database
-    .rpc("snapshot_push_notification_recipients", { p_campaign_id: campaign.id })
-
-  if (snapshotError) {
-    await access.database
+  if (access.database) {
+    const { data: campaign, error: insertError } = await access.database
       .from("push_notification_campaigns")
-      .update({ status: "not_sent", provider_response: { error: "Audience snapshot failed." } })
-      .eq("id", campaign.id)
+      .insert({
+        title,
+        body,
+        click_url: clickUrl ?? null,
+        created_by: access.user.id,
+        status: "sending",
+      })
+      .select("id")
+      .single()
 
-    return jsonError(
-      "Notification was not sent because the registered device list could not be read.",
-      503,
-      { campaign_id: campaign.id },
-    )
+    if (insertError || !campaign) {
+      analyticsWarning = "Analytics history is unavailable; the notification will be sent without click tracking."
+    } else {
+      campaignId = campaign.id
+      const { data, error: snapshotError } = await access.database
+        .rpc("snapshot_push_notification_recipients", { p_campaign_id: campaign.id })
+
+      if (snapshotError) {
+        analyticsWarning = "Recipient totals are unavailable; the notification will still be sent."
+      } else {
+        trackedDeviceCount = data ?? 0
+      }
+    }
+  } else {
+    analyticsWarning = "Analytics database is not configured; the notification will be sent without click tracking."
   }
 
-  const clickTrackingUrl = clickUrl
-    ? new URL(`/api/push-notifications/click/${campaign.id}`, request.url).toString()
+  const clickTrackingUrl = clickUrl && campaignId
+    ? new URL(`/api/push-notifications/click/${campaignId}`, request.url).toString()
     : undefined
+  const outboundUrl = clickTrackingUrl ?? clickUrl
 
   const payload = {
     title,
     body,
-    ...(clickTrackingUrl ? { url: clickTrackingUrl } : {}),
+    ...(outboundUrl ? { url: outboundUrl } : {}),
   }
 
   let apiResponse: Response
@@ -215,14 +216,18 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Notification API request failed."
-    await access.database
-      .from("push_notification_campaigns")
-      .update({ status: "failed", provider_response: { error: message } })
-      .eq("id", campaign.id)
+    if (campaignId && access.database) {
+      await access.database
+        .from("push_notification_campaigns")
+        .update({ status: "failed", provider_response: { error: message } })
+        .eq("id", campaignId)
+    }
 
     return jsonError(message, 502, {
-      campaign_id: campaign.id,
-      tracked_device_count: trackedDeviceCount ?? 0,
+      ...(campaignId ? { campaign_id: campaignId } : {}),
+      tracked_device_count: trackedDeviceCount,
+      history_saved: false,
+      ...(analyticsWarning ? { analytics_warning: analyticsWarning } : {}),
     })
   }
 
@@ -240,35 +245,42 @@ export async function POST(request: NextRequest) {
     ? [provider.message_id, provider.messageId, provider.name].find((value) => typeof value === "string") as string | undefined
     : undefined
 
-  const { error: updateError } = await access.database
-    .from("push_notification_campaigns")
-    .update({
-      status: accepted ? "accepted" : "failed",
-      provider_message_id: providerMessageId ?? null,
-      provider_response: responseBody ?? null,
-      accepted_at: accepted ? new Date().toISOString() : null,
-    })
-    .eq("id", campaign.id)
+  let historySaved = false
+  if (campaignId && access.database) {
+    const { error: updateError } = await access.database
+      .from("push_notification_campaigns")
+      .update({
+        status: accepted ? "accepted" : "failed",
+        provider_message_id: providerMessageId ?? null,
+        provider_response: responseBody ?? null,
+        accepted_at: accepted ? new Date().toISOString() : null,
+      })
+      .eq("id", campaignId)
 
-  if (updateError) {
-    console.error("Could not save push notification provider response:", updateError.message)
+    historySaved = !updateError
+    if (updateError) {
+      analyticsWarning = "Firebase accepted/rejected the request, but its history could not be saved."
+      console.error("Could not save push notification provider response:", updateError.message)
+    }
   }
 
   if (!accepted) {
     return jsonError("The notification API did not accept the request.", 502, {
       response: responseBody,
-      campaign_id: campaign.id,
-      tracked_device_count: trackedDeviceCount ?? 0,
-      history_saved: !updateError,
+      ...(campaignId ? { campaign_id: campaignId } : {}),
+      tracked_device_count: trackedDeviceCount,
+      history_saved: historySaved,
+      ...(analyticsWarning ? { analytics_warning: analyticsWarning } : {}),
     })
   }
 
   return NextResponse.json({
     success: true,
     response: responseBody,
-    campaign_id: campaign.id,
-    tracked_device_count: trackedDeviceCount ?? 0,
-    history_saved: !updateError,
+    ...(campaignId ? { campaign_id: campaignId } : {}),
+    tracked_device_count: trackedDeviceCount,
+    history_saved: historySaved,
+    ...(analyticsWarning ? { analytics_warning: analyticsWarning } : {}),
   })
 }
 
