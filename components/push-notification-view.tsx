@@ -30,6 +30,7 @@ type Campaign = {
   not_yet_received_count: number
   not_opened_count: number
   received_not_opened_count: number
+  click_count: number
 }
 
 type CountryStat = {
@@ -39,6 +40,7 @@ type CountryStat = {
   tracked_device_count: number
   received_count: number
   opened_count: number
+  click_count: number
 }
 
 type HistoryResult = {
@@ -206,7 +208,8 @@ export function PushNotificationView() {
 
       <p className="rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4 text-sm text-blue-900">
         An API success response means Firebase accepted the request; it does not confirm delivery to each device.
-        Device counts below use app registrations and delivery/open events, when the mobile app reports them.
+        Without Firebase or mobile app reporting, delivery and unopened totals are unavailable. When a Tap URL is set,
+        this dashboard records tracked link opens and the country reported by the hosting platform.
       </p>
 
       {result && (
@@ -280,33 +283,45 @@ export function PushNotificationView() {
                       <p className="mt-2 text-xs text-gray-400">{formatDate(campaign.created_at)}</p>
                     </div>
                     <div className="inline-flex items-center gap-1.5 rounded-xl bg-orange-50 px-3 py-2 text-xs font-bold text-orange-800">
-                      <Users className="h-4 w-4" /> {count(campaign.tracked_device_count)} registered
+                      <Users className="h-4 w-4" /> {campaign.tracked_device_count > 0
+                        ? `${count(campaign.tracked_device_count)} registered devices`
+                        : "Recipient total unavailable"}
                     </div>
                   </div>
 
-                  <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
-                    <Metric label="Received reported" value={campaign.received_count} />
-                    <Metric label="No received event" value={campaign.not_yet_received_count} />
-                    <Metric label="Opened reported" value={campaign.opened_count} />
-                    <Metric label="Not opened" value={campaign.not_opened_count} />
-                    <Metric label="Received, not opened" value={campaign.received_not_opened_count} />
+                  <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    <Metric label="Tracked link opens" value={campaign.click_count} />
+                    {campaign.tracked_device_count > 0 && (
+                      <>
+                        <Metric label="Received reported" value={campaign.received_count} />
+                        <Metric label="No received event" value={campaign.not_yet_received_count} />
+                        <Metric label="Opened reported" value={campaign.opened_count} />
+                        <Metric label="Not opened" value={campaign.not_opened_count} />
+                        <Metric label="Received, not opened" value={campaign.received_not_opened_count} />
+                      </>
+                    )}
                   </div>
 
                   <div className="mt-5 border-t border-gray-100 pt-4">
                     <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-gray-500">
-                      <Globe2 className="h-4 w-4" /> Countries of registered devices
+                      <Globe2 className="h-4 w-4" /> Country breakdown
                     </div>
                     {campaignCountries.length ? (
                       <div className="flex flex-wrap gap-2">
                         {campaignCountries.map((country) => (
                           <span key={`${campaign.id}-${country.country_code}`} className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-700">
-                            {country.country_name} Â· {count(country.tracked_device_count)} devices
-                            <span className="text-gray-400"> Â· {count(country.received_count)} received Â· {count(country.opened_count)} opened</span>
+                            {country.country_name}
+                            {country.click_count > 0 && ` Â· ${count(country.click_count)} link opens`}
+                            {country.tracked_device_count > 0 && (
+                              <span className="text-gray-400">
+                                {` Â· ${count(country.tracked_device_count)} devices Â· ${count(country.received_count)} received Â· ${count(country.opened_count)} opened`}
+                              </span>
+                            )}
                           </span>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-gray-400">No country data has been registered by the mobile app.</p>
+                      <p className="text-xs text-gray-400">No link-open or device-country data has been recorded.</p>
                     )}
                   </div>
                 </article>
