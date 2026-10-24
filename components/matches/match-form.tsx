@@ -13,6 +13,12 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
 import { Search, Plus, Calendar, Clock, Globe, Tv, Database, Loader2, X, Trophy, ChevronRight } from "lucide-react"
+import {
+    CATEGORY4_PRESETS,
+    CATEGORY4_PRESET_LABELS,
+    resolveCategory4Mode,
+} from "@/lib/match-category4"
+import { CATEGORY5_CHANNELS, resolveCategory5Mode } from "@/lib/match-category5"
 
 const matchSchema = z.object({
     team1_name: z.string().min(1, "Team 1 Name is required"),
@@ -25,8 +31,24 @@ const matchSchema = z.object({
     english: z.string().default("yes"),
     channel: z.string().min(1, "Channel is required"),
     league_name: z.string().min(1, "League Name is required"),
-    category4_url: z.string().min(1, "Category 4 is required"),
-    category5_url: z.string().min(1, "Category 5 is required"),
+    category4_url: z
+        .string()
+        .min(1, "Category 4 is required")
+        .refine(
+            (val) =>
+                (CATEGORY4_PRESETS as readonly string[]).includes(val) ||
+                z.string().url().safeParse(val).success,
+            "Enter a valid URL for the custom link"
+        ),
+    category5_url: z
+        .string()
+        .min(1, "Category 5 is required")
+        .refine(
+            (val) =>
+                (CATEGORY5_CHANNELS as readonly string[]).includes(val) ||
+                z.string().url().safeParse(val).success,
+            "Enter a valid URL for the browser link"
+        ),
 })
 
 type MatchFormValues = z.infer<typeof matchSchema>
@@ -44,6 +66,10 @@ export function MatchForm({ teams, onSuccess, editingMatch, onCancelEdit }: Matc
     const [team2Search, setTeam2Search] = useState("")
     const [showTeam1Suggestions, setShowTeam1Suggestions] = useState(false)
     const [showTeam2Suggestions, setShowTeam2Suggestions] = useState(false)
+    const [category5Mode, setCategory5Mode] = useState<string>("bein1")
+    const [category5CustomUrl, setCategory5CustomUrl] = useState("")
+    const [category4Mode, setCategory4Mode] = useState<string>("not.php")
+    const [category4CustomUrl, setCategory4CustomUrl] = useState("")
 
     const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<MatchFormValues>({
         resolver: zodResolver(matchSchema),
@@ -71,6 +97,12 @@ export function MatchForm({ teams, onSuccess, editingMatch, onCancelEdit }: Matc
                 category4_url: editingMatch.category4_url,
                 category5_url: editingMatch.category5_url,
             })
+            const cat4 = resolveCategory4Mode(editingMatch.category4_url)
+            setCategory4Mode(cat4.mode)
+            setCategory4CustomUrl(cat4.customUrl)
+            const cat5 = resolveCategory5Mode(editingMatch.category5_url)
+            setCategory5Mode(cat5.mode)
+            setCategory5CustomUrl(cat5.customUrl)
             setTeam1Search(editingMatch.team1_name)
             setTeam2Search(editingMatch.team2_name)
         } else {
@@ -88,10 +120,34 @@ export function MatchForm({ teams, onSuccess, editingMatch, onCancelEdit }: Matc
                 category4_url: "not.php",
                 category5_url: "bein1"
             })
+            setCategory4Mode("not.php")
+            setCategory4CustomUrl("")
+            setCategory5Mode("bein1")
+            setCategory5CustomUrl("")
             setTeam1Search("")
             setTeam2Search("")
         }
     }, [editingMatch, reset])
+
+    const onCategory5ModeChange = (val: string) => {
+        setCategory5Mode(val)
+        if (val === "others") {
+            setValue("STATUS", "browser")
+            setValue("category5_url", category5CustomUrl, { shouldValidate: true })
+        } else {
+            setValue("STATUS", "token")
+            setValue("category5_url", val, { shouldValidate: true })
+        }
+    }
+
+    const onCategory4ModeChange = (val: string) => {
+        setCategory4Mode(val)
+        if (val === "others") {
+            setValue("category4_url", category4CustomUrl, { shouldValidate: true })
+        } else {
+            setValue("category4_url", val, { shouldValidate: true })
+        }
+    }
 
     const filteredTeams1 = useMemo(() => {
         if (!team1Search) return []
@@ -129,7 +185,11 @@ export function MatchForm({ teams, onSuccess, editingMatch, onCancelEdit }: Matc
 
             if (res.success) {
                 toast.success(editingMatch ? "Match updated successfully" : "Match added successfully")
-                if (!editingMatch) reset()
+                if (!editingMatch) {
+                    reset()
+                    setCategory5Mode("bein1")
+                    setCategory5CustomUrl("")
+                }
                 onSuccess()
                 if (onCancelEdit) onCancelEdit()
             } else {
@@ -331,7 +391,7 @@ export function MatchForm({ teams, onSuccess, editingMatch, onCancelEdit }: Matc
                         </div>
                         <div className="space-y-2">
                             <Label className="text-xs font-black uppercase tracking-widest text-orange-600">Category 5 (Frontend App)</Label>
-                            <Select onValueChange={(val) => setValue("category5_url", val)} defaultValue={watch("category5_url")}>
+                            <Select value={category5Mode} onValueChange={onCategory5ModeChange}>
                                 <SelectTrigger className="h-11 rounded-xl border-orange-600 bg-orange-50/50 font-bold text-orange-700">
                                     <SelectValue placeholder="Select Channel" />
                                 </SelectTrigger>
@@ -341,27 +401,69 @@ export function MatchForm({ teams, onSuccess, editingMatch, onCancelEdit }: Matc
                                     <SelectItem value="bein3" className="font-bold">Channel 3</SelectItem>
                                     <SelectItem value="bein4" className="font-bold">Channel 4</SelectItem>
                                     <SelectItem value="bein5" className="font-bold">Channel 5</SelectItem>
+                                    <SelectItem value="others" className="font-bold">Others (Browser / Link)</SelectItem>
                                 </SelectContent>
                             </Select>
+                            {category5Mode === "others" && (
+                                <div className="space-y-1.5 pt-1">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-orange-500 flex items-center gap-2">
+                                        <Globe className="h-3 w-3" /> Custom stream link
+                                    </Label>
+                                    <Input
+                                        value={category5CustomUrl}
+                                        onChange={(e) => {
+                                            const url = e.target.value
+                                            setCategory5CustomUrl(url)
+                                            setValue("category5_url", url, { shouldValidate: true })
+                                        }}
+                                        placeholder="https://example.com/stream"
+                                        className="h-11 rounded-xl border-orange-600 bg-white font-bold text-orange-900 placeholder:text-orange-300"
+                                    />
+                                </div>
+                            )}
+                            {errors.category5_url && category5Mode === "others" && (
+                                <p className="text-xs font-bold text-red-500">{errors.category5_url.message}</p>
+                            )}
                         </div>
                     </div>
 
                     <div className="space-y-2">
                         <Label className="text-xs font-black uppercase tracking-widest text-orange-600">Category 4 (Streaming URL)</Label>
-                        <Select onValueChange={(val) => setValue("category4_url", val)} defaultValue={watch("category4_url")}>
+                        <Select value={category4Mode} onValueChange={onCategory4ModeChange}>
                             <SelectTrigger className="h-12 rounded-xl border-orange-600 bg-orange-50/50 font-bold text-orange-700">
                                 <SelectValue placeholder="Select Streaming Destination" />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl border-orange-100 max-h-[300px]">
-                                <SelectItem value="not.php" className="font-bold">Not on Time</SelectItem>
-                                <SelectItem value="play1.php" className="font-bold">Channel 1</SelectItem>
-                                <SelectItem value="play2.php" className="font-bold">Channel 2</SelectItem>
-                                <SelectItem value="play3.php" className="font-bold">Channel 3</SelectItem>
-                                <SelectItem value="play4.php" className="font-bold">Channel 4</SelectItem>
-                                <SelectItem value="play5.php" className="font-bold">Channel 5</SelectItem>
-                                <SelectItem value="play6.php" className="font-bold">Channel 6</SelectItem>
+                                {CATEGORY4_PRESETS.map((preset) => (
+                                    <SelectItem key={preset} value={preset} className="font-bold">
+                                        {CATEGORY4_PRESET_LABELS[preset]}
+                                    </SelectItem>
+                                ))}
+                                <SelectItem value="others" className="font-bold">
+                                    Other (custom link)
+                                </SelectItem>
                             </SelectContent>
                         </Select>
+                        {category4Mode === "others" && (
+                            <div className="space-y-1.5 pt-1">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-orange-500 flex items-center gap-2">
+                                    <Globe className="h-3 w-3" /> Custom streaming link
+                                </Label>
+                                <Input
+                                    value={category4CustomUrl}
+                                    onChange={(e) => {
+                                        const url = e.target.value
+                                        setCategory4CustomUrl(url)
+                                        setValue("category4_url", url, { shouldValidate: true })
+                                    }}
+                                    placeholder="https://example.com/stream"
+                                    className="h-11 rounded-xl border-orange-600 bg-white font-bold text-orange-900 placeholder:text-orange-300"
+                                />
+                            </div>
+                        )}
+                        {errors.category4_url && category4Mode === "others" && (
+                            <p className="text-xs font-bold text-red-500">{errors.category4_url.message}</p>
+                        )}
                     </div>
 
                     <div className="flex gap-4 pt-4">

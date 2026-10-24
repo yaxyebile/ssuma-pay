@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Match } from "./matches-view"
 import { deleteMatch, updateMatch } from "@/app/actions/match-actions"
 import { toast } from "sonner"
@@ -27,6 +27,14 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import {
+    CATEGORY4_PRESETS,
+    CATEGORY4_PRESET_LABELS,
+    category4LiveUrl,
+    isValidCategory4Value,
+    resolveCategory4Mode,
+} from "@/lib/match-category4"
 
 interface MatchListProps {
     matches: Match[]
@@ -36,13 +44,11 @@ interface MatchListProps {
 }
 
 const CAT4_OPTIONS = [
-    { value: "not.php", label: "Not on Time" },
-    { value: "play1.php", label: "Channel 1" },
-    { value: "play2.php", label: "Channel 2" },
-    { value: "play3.php", label: "Channel 3" },
-    { value: "play4.php", label: "Channel 4" },
-    { value: "play5.php", label: "Channel 5" },
-    { value: "play6.php", label: "Channel 6" },
+    ...CATEGORY4_PRESETS.map((value) => ({
+        value,
+        label: CATEGORY4_PRESET_LABELS[value],
+    })),
+    { value: "others", label: "Other (custom link)" },
 ]
 
 const CAT5_OPTIONS = [
@@ -62,6 +68,15 @@ export function MatchList({ matches, loading, onRefresh, onEdit }: MatchListProp
     const [deletingId, setDeletingId] = useState<string | number | null>(null)
     const [updatingId, setUpdatingId] = useState<string | number | null>(null)
     const [selectedMatch, setSelectedMatch] = useState<Match | null>(null)
+    const [cat4Mode, setCat4Mode] = useState("not.php")
+    const [cat4CustomUrl, setCat4CustomUrl] = useState("")
+
+    useEffect(() => {
+        if (!selectedMatch) return
+        const resolved = resolveCategory4Mode(selectedMatch.category4_url)
+        setCat4Mode(resolved.mode)
+        setCat4CustomUrl(resolved.customUrl)
+    }, [selectedMatch])
 
     const handleDelete = async (id: string | number) => {
         if (!confirm("Are you sure you want to delete this match?")) return
@@ -211,7 +226,7 @@ export function MatchList({ matches, loading, onRefresh, onEdit }: MatchListProp
                                                 <DropdownMenuItem onClick={() => onEdit(match)} className="rounded-xl px-3 py-2.5 font-bold text-gray-700 focus:bg-orange-50 focus:text-orange-600 cursor-pointer">
                                                     <Edit className="h-4 w-4 mr-3" /> Quick Edit
                                                 </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => window.open(`https://zentova.net/${match.category4_url}`, '_blank')} className="rounded-xl px-3 py-2.5 font-bold text-gray-700 focus:bg-orange-50 focus:text-orange-600 cursor-pointer">
+                                                <DropdownMenuItem onClick={() => window.open(category4LiveUrl(match.category4_url), '_blank')} className="rounded-xl px-3 py-2.5 font-bold text-gray-700 focus:bg-orange-50 focus:text-orange-600 cursor-pointer">
                                                     <ExternalLink className="h-4 w-4 mr-3" /> Preview Web
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator className="bg-orange-50" />
@@ -293,8 +308,13 @@ export function MatchList({ matches, loading, onRefresh, onEdit }: MatchListProp
                                         <Label className="text-[10px] font-black uppercase text-gray-400 px-1">Web Channel (Category 4)</Label>
                                         <Select
                                             disabled={!!updatingId}
-                                            defaultValue={selectedMatch.category4_url}
-                                            onValueChange={(val) => handleQuickUpdate("category4_url", val)}
+                                            value={cat4Mode}
+                                            onValueChange={(val) => {
+                                                setCat4Mode(val)
+                                                if (val !== "others") {
+                                                    handleQuickUpdate("category4_url", val)
+                                                }
+                                            }}
                                         >
                                             <SelectTrigger className="h-12 rounded-xl bg-white border-orange-100 font-bold text-gray-700 shadow-sm">
                                                 <SelectValue />
@@ -305,6 +325,23 @@ export function MatchList({ matches, loading, onRefresh, onEdit }: MatchListProp
                                                 ))}
                                             </SelectContent>
                                         </Select>
+                                        {cat4Mode === "others" && (
+                                            <Input
+                                                disabled={!!updatingId}
+                                                value={cat4CustomUrl}
+                                                onChange={(e) => setCat4CustomUrl(e.target.value)}
+                                                onBlur={() => {
+                                                    const url = cat4CustomUrl.trim()
+                                                    if (isValidCategory4Value(url)) {
+                                                        handleQuickUpdate("category4_url", url)
+                                                    } else if (url) {
+                                                        toast.error("Enter a valid URL")
+                                                    }
+                                                }}
+                                                placeholder="https://example.com/stream"
+                                                className="h-11 rounded-xl bg-white border-orange-100 font-bold"
+                                            />
+                                        )}
                                     </div>
 
                                     <div className="space-y-2">
@@ -347,7 +384,7 @@ export function MatchList({ matches, loading, onRefresh, onEdit }: MatchListProp
                                 <Button
                                     variant="outline"
                                     className="h-16 rounded-[1.25rem] border-orange-200 text-gray-700 hover:bg-orange-50 font-black"
-                                    onClick={() => window.open(`https://zentova.net/${selectedMatch.category4_url}`, '_blank')}
+                                    onClick={() => window.open(category4LiveUrl(selectedMatch.category4_url), '_blank')}
                                 >
                                     <ExternalLink className="h-5 w-5 mr-3" />
                                     Live Preview

@@ -74,6 +74,51 @@ export async function updateMatch(id: number | string, data: any) {
     }
 }
 
+export async function updateMatchCategory5ById(
+    id: number | string,
+    category5_url: string,
+    STATUS: string
+) {
+    const list = await fetchMatches()
+    if (!list.success || !Array.isArray(list.matches)) {
+        return { success: false, message: list.error || "Failed to load matches" }
+    }
+    const match = list.matches.find((m: { id: string | number }) => String(m.id) === String(id))
+    if (!match) {
+        return { success: false, message: "Match not found" }
+    }
+    return updateMatch(id, { ...match, category5_url, STATUS })
+}
+
+export async function bulkUpdateMatchCategory5(category5_url: string, STATUS: string) {
+    const list = await fetchMatches()
+    if (!list.success || !Array.isArray(list.matches)) {
+        return { success: false, message: list.error || "Failed to load matches" }
+    }
+    const matches = list.matches as { id: string | number }[]
+    if (matches.length === 0) {
+        return { success: true, message: "No matches to update", count: 0 }
+    }
+
+    let updated = 0
+    for (const match of matches) {
+        const res = await updateMatch(match.id, { ...match, category5_url, STATUS })
+        if (res.success) updated++
+    }
+
+    if (updated === 0) {
+        return { success: false, message: "Failed to update any matches" }
+    }
+    if (updated < matches.length) {
+        return {
+            success: true,
+            message: `Updated ${updated} of ${matches.length} matches`,
+            count: updated,
+        }
+    }
+    return { success: true, message: "All matches updated successfully!", count: updated }
+}
+
 export async function deleteMatch(id: number | string) {
     try {
         const response = await fetch(MATCHES_URL, {

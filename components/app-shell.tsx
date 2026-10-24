@@ -20,10 +20,11 @@ import {
   Users,
   Package,
   Monitor,
-  Satellite
+  Satellite,
+  Link2
 } from "lucide-react"
 
-type Page = "dashboard" | "settlements" | "activity" | "reports" | "users" | "admin" | "billing" | "active-matches" | "add-match" | "teams" | "orders" | "streams" | "iptv"
+type Page = "dashboard" | "settlements" | "activity" | "reports" | "users" | "admin" | "billing" | "active-matches" | "add-match" | "teams" | "match-url-manager" | "orders" | "streams" | "iptv"
 
 interface NavItem {
   id: Page
@@ -37,6 +38,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "active-matches", label: "Active Matches", icon: <Trophy className="h-5 w-5" /> },
   { id: "add-match", label: "Add New Match", icon: <Plus className="h-5 w-5" /> },
   { id: "teams", label: "Teams Library", icon: <Users className="h-5 w-5" /> },
+  { id: "match-url-manager", label: "Match URL Manager", icon: <Link2 className="h-5 w-5" /> },
   { id: "settlements", label: "Settlements", icon: <List className="h-5 w-5" /> },
   { id: "activity", label: "Activity Log", icon: <Activity className="h-5 w-5" /> },
   { id: "reports", label: "Reports", icon: <BarChart2 className="h-5 w-5" /> },
@@ -73,6 +75,7 @@ export function AppShell({ children }: AppShellProps) {
     "active-matches": "Scheduled Matches",
     "add-match": "Deploy New Match",
     teams: "Teams Database",
+    "match-url-manager": "Match URL Manager",
     orders: "Api Distribution Hub",
     streams: "Live Grid Intelligence",
     iptv: "IPTV Stream Hub",

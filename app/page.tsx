@@ -10,6 +10,7 @@ import { LoginPage } from "@/components/login-page"
 import { AdminManagementView } from "@/components/admin-mgmt-view"
 import { BillingView } from "@/components/billing-view"
 import { MatchesView } from "@/components/matches/matches-view"
+import { MatchUrlManager } from "@/components/matches/match-url-manager"
 import { OrdersView } from "@/components/orders-view"
 import { StreamMonitorView } from "@/components/stream-monitor-view"
 import { IPTVView } from "@/components/iptv-view"
@@ -40,6 +41,7 @@ export default function Home() {
         if (activePage === "activity") return <ActivityLogView />
         if (activePage === "reports") return <ReportsView />
         if (activePage === "billing") return <BillingView />
+        if (activePage === "match-url-manager") return <MatchUrlManager />
         if (activePage === "active-matches" || activePage === "add-match" || activePage === "teams") {
           return <MatchesView initialTab={activePage === "teams" ? "teams" : "matches"} initialView={activePage === "add-match" ? "form" : "list"} />
         }
