@@ -14,6 +14,7 @@ import { MatchUrlManager } from "@/components/matches/match-url-manager"
 import { OrdersView } from "@/components/orders-view"
 import { StreamMonitorView } from "@/components/stream-monitor-view"
 import { IPTVView } from "@/components/iptv-view"
+import { PushNotificationView } from "@/components/push-notification-view"
 
 export default function Home() {
   const { currentUser, loading, refreshData } = useApp()
@@ -49,8 +50,10 @@ export default function Home() {
         if (activePage === "orders") return <OrdersView />
         if (activePage === "streams") return <StreamMonitorView />
         if (activePage === "iptv") return <IPTVView />
+        if (activePage === "push-notifications") return <PushNotificationView />
         return <DashboardView />
       }}
     </AppShell>
   )
 }
+

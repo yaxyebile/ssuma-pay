@@ -21,10 +21,11 @@ import {
   Package,
   Monitor,
   Satellite,
-  Link2
+  Link2,
+  BellRing
 } from "lucide-react"
 
-type Page = "dashboard" | "settlements" | "activity" | "reports" | "users" | "admin" | "billing" | "active-matches" | "add-match" | "teams" | "match-url-manager" | "orders" | "streams" | "iptv"
+type Page = "dashboard" | "settlements" | "activity" | "reports" | "users" | "admin" | "billing" | "active-matches" | "add-match" | "teams" | "match-url-manager" | "orders" | "streams" | "iptv" | "push-notifications"
 
 interface NavItem {
   id: Page
@@ -46,6 +47,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "orders", label: "Api Orders", icon: <Package className="h-5 w-5" /> },
   { id: "streams", label: "Stream Monitor", icon: <Monitor className="h-5 w-5" /> },
   { id: "iptv", label: "IPTV Channels", icon: <Satellite className="h-5 w-5" /> },
+  { id: "push-notifications", label: "Push Notifications", icon: <BellRing className="h-5 w-5" />, adminOnly: true },
   { id: "users", label: "Users", icon: <User className="h-5 w-5" />, adminOnly: true },
   { id: "admin", label: "Admin Panel", icon: <Shield className="h-5 w-5" />, adminOnly: true },
 ]
@@ -79,6 +81,7 @@ export function AppShell({ children }: AppShellProps) {
     orders: "Api Distribution Hub",
     streams: "Live Grid Intelligence",
     iptv: "IPTV Stream Hub",
+    "push-notifications": "Push Notifications",
   }
 
   return (
@@ -200,3 +203,4 @@ export function AppShell({ children }: AppShellProps) {
     </div>
   )
 }
+
