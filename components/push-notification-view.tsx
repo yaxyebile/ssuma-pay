@@ -11,6 +11,7 @@ type SendResult = {
   campaign_id?: string
   tracked_device_count?: number
   history_saved?: boolean
+  analytics_warning?: string
 }
 
 type Campaign = {
@@ -220,6 +221,11 @@ export function PushNotificationView() {
               Campaign: {result.campaign_id}
               {typeof result.tracked_device_count === "number" &&
                 ` Â· ${count(result.tracked_device_count)} registered devices in the audience snapshot`}
+            </p>
+          )}
+          {result.analytics_warning && (
+            <p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              {result.analytics_warning}
             </p>
           )}
           <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-gray-950 p-4 text-xs text-gray-100">
