@@ -182,10 +182,14 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  const clickTrackingUrl = clickUrl
+    ? new URL(`/api/push-notifications/click/${campaign.id}`, request.url).toString()
+    : undefined
+
   const payload = {
     title,
     body,
-    ...(clickUrl ? { url: clickUrl } : {}),
+    ...(clickTrackingUrl ? { url: clickTrackingUrl } : {}),
   }
 
   let apiResponse: Response
