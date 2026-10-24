@@ -35,6 +35,7 @@ import {
     isValidCategory4Value,
     resolveCategory4Mode,
 } from "@/lib/match-category4"
+import { CATEGORY5_BEIN10_UUID, category5DisplayName, normalizeCategory5Value } from "@/lib/match-category5"
 
 interface MatchListProps {
     matches: Match[]
@@ -61,7 +62,7 @@ const CAT5_OPTIONS = [
     { value: "bein7", label: "BEIN 7" },
     { value: "bein8", label: "BEIN 8" },
     { value: "bein9", label: "BEIN 9" },
-    { value: "bein10", label: "BEIN 10" },
+    { value: CATEGORY5_BEIN10_UUID, label: "BEIN 10" },
 ]
 
 export function MatchList({ matches, loading, onRefresh, onEdit }: MatchListProps) {
@@ -207,7 +208,7 @@ export function MatchList({ matches, loading, onRefresh, onEdit }: MatchListProp
                                         <div className="flex flex-col gap-1.5">
                                             <div className="flex items-center gap-2">
                                                 <div className={`h-1.5 w-1.5 rounded-full ${live ? 'bg-red-500' : 'bg-green-500'} animate-pulse`} />
-                                                <span className="text-[10px] font-black text-gray-700 uppercase leading-none">App: {match.category5_url}</span>
+                                                <span className="text-[10px] font-black text-gray-700 uppercase leading-none">App: {category5DisplayName(match.category5_url)}</span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <div className={`h-1.5 w-1.5 rounded-full ${live ? 'bg-red-400' : 'bg-blue-500'}`} />
@@ -348,7 +349,7 @@ export function MatchList({ matches, loading, onRefresh, onEdit }: MatchListProp
                                         <Label className="text-[10px] font-black uppercase text-gray-400 px-1">App Node (Category 5)</Label>
                                         <Select
                                             disabled={!!updatingId}
-                                            defaultValue={selectedMatch.category5_url}
+                                            defaultValue={normalizeCategory5Value(selectedMatch.category5_url)}
                                             onValueChange={(val) => handleQuickUpdate("category5_url", val)}
                                         >
                                             <SelectTrigger className="h-12 rounded-xl bg-white border-orange-100 font-bold text-gray-700 shadow-sm">

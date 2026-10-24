@@ -18,7 +18,7 @@ import {
     CATEGORY4_PRESET_LABELS,
     resolveCategory4Mode,
 } from "@/lib/match-category4"
-import { CATEGORY5_CHANNELS, resolveCategory5Mode } from "@/lib/match-category5"
+import { CATEGORY5_BEIN10_UUID, CATEGORY5_CHANNELS, resolveCategory5Mode } from "@/lib/match-category5"
 
 const matchSchema = z.object({
     team1_name: z.string().min(1, "Team 1 Name is required"),
@@ -103,6 +103,7 @@ export function MatchForm({ teams, onSuccess, editingMatch, onCancelEdit }: Matc
             const cat5 = resolveCategory5Mode(editingMatch.category5_url)
             setCategory5Mode(cat5.mode)
             setCategory5CustomUrl(cat5.customUrl)
+            setValue("category5_url", cat5.mode === "others" ? cat5.customUrl : cat5.mode)
             setTeam1Search(editingMatch.team1_name)
             setTeam2Search(editingMatch.team2_name)
         } else {
@@ -401,6 +402,7 @@ export function MatchForm({ teams, onSuccess, editingMatch, onCancelEdit }: Matc
                                     <SelectItem value="bein3" className="font-bold">Channel 3</SelectItem>
                                     <SelectItem value="bein4" className="font-bold">Channel 4</SelectItem>
                                     <SelectItem value="bein5" className="font-bold">Channel 5</SelectItem>
+                                    <SelectItem value={CATEGORY5_BEIN10_UUID} className="font-bold">BEIN 10</SelectItem>
                                     <SelectItem value="others" className="font-bold">Others (Browser / Link)</SelectItem>
                                 </SelectContent>
                             </Select>
