@@ -27,8 +27,8 @@ export async function fetchMatches() {
         if (data.success && Array.isArray(data.matches)) {
             data.matches = data.matches.map((match: any) => ({
                 ...match,
-                team1_logo: match.team1_logo?.startsWith('http') ? match.team1_logo : `https://zentova.net/${match.team1_logo}`,
-                team2_logo: match.team2_logo?.startsWith('http') ? match.team2_logo : `https://zentova.net/${match.team2_logo}`
+                team1_logo: match.team1_logo?.startsWith('http') ? match.team1_logo : `https://orangegas.store/${match.team1_logo}`,
+                team2_logo: match.team2_logo?.startsWith('http') ? match.team2_logo : `https://orangegas.store/${match.team2_logo}`
             }))
         }
 
