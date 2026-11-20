@@ -1,14 +1,14 @@
 "use server"
 
 const API_KEY = process.env.MATCHES_API_KEY
-const MATCHES_URL = "https://zentova.net/action.php"
+const MATCHES_URL = "https://orangegas.store/matches.php"
 
 const BROWSER_HEADERS = {
     'Content-Type': 'application/json',
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Accept': 'application/json',
-    'Origin': 'https://zentova.net',
-    'Referer': 'https://zentova.net/'
+    'Origin': 'https://orangegas.store',
+    'Referer': 'https://orangegas.store/'
 }
 
 export async function fetchMatches() {
@@ -135,3 +135,4 @@ export async function deleteMatch(id: number | string) {
         return { success: false, error: "Failed to delete match" }
     }
 }
+
