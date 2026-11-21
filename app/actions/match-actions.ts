@@ -127,8 +127,30 @@ export async function fetchMatches() {
     }
 }
 
-export async function addMatch(data: any, source: MatchSource = "orangegas") {
-    return sendMatchAction(source, { action: "add", data: stripMatchSource(data) }, "Failed to add match")
+export async function addMatch(data: any) {
+    const results = await Promise.all(MATCH_SOURCES.map(async (source) => ({
+        source,
+        result: await sendMatchAction(source, { action: "add", data: stripMatchSource(data) }, "Failed to add match"),
+    })))
+    const succeeded = results.filter(({ result }) => result.success).map(({ source }) => source)
+    const failed = results.filter(({ result }) => !result.success).map(({ source, result }) => ({
+        source,
+        message: result.message || "The endpoint rejected the match.",
+    }))
+
+    if (failed.length === 0) {
+        return { success: true, message: "Match added to both endpoints." }
+    }
+
+    if (succeeded.length === 0) {
+        return { success: false, message: failed.map(({ source, message }) => `${source}: ${message}`).join(" ") }
+    }
+
+    return {
+        success: false,
+        partial: true,
+        message: `Match was added to ${succeeded.join(" and ")}, but failed on ${failed.map(({ source }) => source).join(" and ")}. ${failed.map(({ message }) => message).join(" ")}`,
+    }
 }
 
 export async function updateMatch(id: number | string, data: any, source: MatchSource = "orangegas") {
@@ -139,19 +161,25 @@ export async function updateMatchCategory5ById(
     id: number | string,
     category5_url: string,
     STATUS: string,
-    source: MatchSource = "orangegas",
 ) {
     const list = await fetchMatches()
     if (!list.success || !Array.isArray(list.matches)) {
         return { success: false, message: list.error || "Failed to load matches" }
     }
-    const match = list.matches.find((item: any) =>
-        String(item.id) === String(id) && item.source === source
-    )
-    if (!match) {
-        return { success: false, message: `Match ${id} was not found in ${source}.` }
+    const matches = list.matches.filter((item: any) => String(item.id) === String(id))
+    if (matches.length === 0) {
+        return { success: false, message: `Match ${id} was not found.` }
     }
-    return updateMatch(id, { ...match, category5_url, STATUS }, source)
+
+    const results = await Promise.all(matches.map((match: any) =>
+        updateMatch(id, { ...match, category5_url, STATUS }, match.source)
+    ))
+    const updated = results.filter((result: any) => result.success).length
+    if (updated === 0) return { success: false, message: `Failed to update match ${id}.` }
+    if (updated < matches.length) {
+        return { success: true, message: `Updated match ${id} in ${updated} of ${matches.length} endpoints.` }
+    }
+    return { success: true, message: `Match ${id} updated in ${matches.map((match: any) => match.source).join(" and ")}.` }
 }
 
 export async function bulkUpdateMatchCategory5(category5_url: string, STATUS: string) {
