@@ -12,6 +12,33 @@ function jsonError(error: string, status: number, extra: Record<string, unknown>
   return NextResponse.json({ success: false, error, ...extra }, { status })
 }
 
+function hasAllowedRequestOrigin(request: NextRequest) {
+  const originHeader = request.headers.get("origin")
+  if (!originHeader) return false
+
+  let origin: string
+  try {
+    origin = new URL(originHeader).origin
+  } catch {
+    return false
+  }
+
+  const requestUrl = new URL(request.url)
+  const allowedOrigins = new Set([requestUrl.origin])
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host")
+  const protocol = request.headers.get("x-forwarded-proto")?.split(",")[0].trim() || requestUrl.protocol.slice(0, -1)
+
+  if (host) {
+    try {
+      allowedOrigins.add(new URL(`${protocol}://${host}`).origin)
+    } catch {
+      // Ignore malformed forwarded host values and retain the request URL origin.
+    }
+  }
+
+  return allowedOrigins.has(origin)
+}
+
 async function requireAdmin() {
   const sessionClient = await createClient()
   const {
@@ -91,8 +118,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const origin = request.headers.get("origin")
-  if (!origin || origin !== new URL(request.url).origin) {
+  if (!hasAllowedRequestOrigin(request)) {
     return jsonError("Request origin is not allowed.", 403)
   }
 
