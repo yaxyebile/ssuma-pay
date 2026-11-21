@@ -79,11 +79,11 @@ export function MatchList({ matches, loading, onRefresh, onEdit }: MatchListProp
         setCat4CustomUrl(resolved.customUrl)
     }, [selectedMatch])
 
-    const handleDelete = async (id: string | number) => {
+    const handleDelete = async (match: Match) => {
         if (!confirm("Are you sure you want to delete this match?")) return
-        setDeletingId(id)
+        setDeletingId(`${match.source ?? "orangegas"}:${match.id}`)
         try {
-            const res = await deleteMatch(id)
+            const res = await deleteMatch(match.id, match.source ?? "orangegas")
             if (res.success) {
                 toast.success("Match deleted")
                 onRefresh()
@@ -107,7 +107,7 @@ export function MatchList({ matches, loading, onRefresh, onEdit }: MatchListProp
             const res = await updateMatch(selectedMatch.id, {
                 ...selectedMatch,
                 [field]: value
-            })
+            }, selectedMatch.source ?? "orangegas")
 
             if (res.success) {
                 toast.success("Channel updated instantly", { id: loadingToast })
@@ -155,7 +155,7 @@ export function MatchList({ matches, loading, onRefresh, onEdit }: MatchListProp
                             const live = isLive(match.STATUS)
                             return (
                                 <TableRow
-                                    key={match.id}
+                                    key={`${match.source ?? "orangegas"}:${match.id}`}
                                     onClick={() => setSelectedMatch(match)}
                                     className={`group cursor-pointer transition-all duration-300 border-orange-50/50 ${live ? 'bg-red-50/50 hover:bg-red-50' : 'hover:bg-orange-50/30'
                                         }`}
@@ -181,6 +181,9 @@ export function MatchList({ matches, loading, onRefresh, onEdit }: MatchListProp
                                                     <div className={`flex items-center gap-1 text-[10px] font-bold uppercase ${live ? 'text-red-500' : 'text-orange-600'}`}>
                                                         <Clock className="h-3 w-3" /> {match.match_time}
                                                     </div>
+                                                    <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-gray-500">
+                                                        {match.source === "zentova" ? "Zentova" : "Orangegas"}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
@@ -232,7 +235,7 @@ export function MatchList({ matches, loading, onRefresh, onEdit }: MatchListProp
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator className="bg-orange-50" />
                                                 <DropdownMenuItem
-                                                    onClick={() => handleDelete(match.id)}
+                                                    onClick={() => handleDelete(match)}
                                                     className="rounded-xl px-3 py-2.5 font-bold text-red-500 focus:bg-red-50 focus:text-red-600 cursor-pointer"
                                                 >
                                                     <Trash2 className="h-4 w-4 mr-3" /> Terminate Stream
@@ -395,7 +398,7 @@ export function MatchList({ matches, loading, onRefresh, onEdit }: MatchListProp
                             <Button
                                 variant="ghost"
                                 className="w-full h-12 mt-4 rounded-xl text-red-500 hover:bg-red-50 font-bold text-xs"
-                                onClick={() => handleDelete(selectedMatch.id)}
+                                onClick={() => handleDelete(selectedMatch)}
                             >
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 Terminate Match
