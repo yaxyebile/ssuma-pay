@@ -19,7 +19,6 @@ import {
     resolveCategory4Mode,
 } from "@/lib/match-category4"
 import { CATEGORY5_BEIN10_UUID, CATEGORY5_CHANNELS, resolveCategory5Mode } from "@/lib/match-category5"
-import type { MatchSource } from "@/lib/match-types"
 
 const matchSchema = z.object({
     team1_name: z.string().min(1, "Team 1 Name is required"),
@@ -71,7 +70,6 @@ export function MatchForm({ teams, onSuccess, editingMatch, onCancelEdit }: Matc
     const [category5CustomUrl, setCategory5CustomUrl] = useState("")
     const [category4Mode, setCategory4Mode] = useState<string>("not.php")
     const [category4CustomUrl, setCategory4CustomUrl] = useState("")
-    const [targetSource, setTargetSource] = useState<MatchSource>("orangegas")
 
     const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<MatchFormValues>({
         resolver: zodResolver(matchSchema),
@@ -85,7 +83,6 @@ export function MatchForm({ teams, onSuccess, editingMatch, onCancelEdit }: Matc
 
     useEffect(() => {
         if (editingMatch) {
-            setTargetSource(editingMatch.source ?? "orangegas")
             reset({
                 team1_name: editingMatch.team1_name,
                 team1_logo: editingMatch.team1_logo,
@@ -110,7 +107,6 @@ export function MatchForm({ teams, onSuccess, editingMatch, onCancelEdit }: Matc
             setTeam1Search(editingMatch.team1_name)
             setTeam2Search(editingMatch.team2_name)
         } else {
-            setTargetSource("orangegas")
             reset({
                 team1_name: "",
                 team1_logo: "",
@@ -185,7 +181,7 @@ export function MatchForm({ teams, onSuccess, editingMatch, onCancelEdit }: Matc
             if (editingMatch) {
                 res = await updateMatch(editingMatch.id, values, editingMatch.source ?? "orangegas")
             } else {
-                res = await addMatch(values, targetSource)
+                res = await addMatch(values)
             }
 
             if (res.success) {
@@ -194,8 +190,7 @@ export function MatchForm({ teams, onSuccess, editingMatch, onCancelEdit }: Matc
                     reset()
                     setCategory5Mode("bein1")
                     setCategory5CustomUrl("")
-                    setTargetSource("orangegas")
-                }
+                        }
                 onSuccess()
                 if (onCancelEdit) onCancelEdit()
             } else {
@@ -233,23 +228,10 @@ export function MatchForm({ teams, onSuccess, editingMatch, onCancelEdit }: Matc
                         )}
                     </div>
 
-                    {editingMatch ? (
+                    {editingMatch && (
                         <p className="text-xs font-bold uppercase tracking-widest text-orange-600">
                             Editing from {editingMatch.source === "zentova" ? "Zentova" : "Orangegas"}
                         </p>
-                    ) : (
-                        <div className="max-w-sm space-y-2">
-                            <Label className="text-xs font-black uppercase tracking-widest text-gray-500">Save match to</Label>
-                            <Select value={targetSource} onValueChange={(value) => setTargetSource(value as MatchSource)}>
-                                <SelectTrigger className="h-11 rounded-xl border-orange-100 font-bold">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-xl">
-                                    <SelectItem value="orangegas" className="font-bold">Orangegas matches</SelectItem>
-                                    <SelectItem value="zentova" className="font-bold">Zentova matches</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
                     )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
