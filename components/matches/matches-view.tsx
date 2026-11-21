@@ -10,6 +10,7 @@ import { fetchTeams } from "@/app/actions/team-actions"
 import { fetchMatches } from "@/app/actions/match-actions"
 import { toast } from "sonner"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import type { MatchSource } from "@/lib/match-types"
 
 export interface Team {
     id: string | number
@@ -19,6 +20,7 @@ export interface Team {
 
 export interface Match {
     id: string | number
+    source?: MatchSource
     team1_name: string
     team1_logo: string
     team2_name: string
@@ -60,7 +62,12 @@ export function MatchesView({ initialTab = "matches", initialView = "list" }: Ma
             ])
 
             if (teamsRes.success) setTeams(teamsRes.teams || [])
-            if (matchesRes.success) setMatches(matchesRes.matches || [])
+            if (matchesRes.success) {
+                setMatches(matchesRes.matches || [])
+                if (matchesRes.warnings?.length) {
+                    toast.error(`Some match sources failed: ${matchesRes.warnings.join(" ")}`)
+                }
+            }
             else toast.error("Failed to load matches: " + (matchesRes.error || "Unknown error"))
         } catch (error) {
             toast.error("An error occurred while loading data.")
@@ -194,3 +201,4 @@ export function MatchesView({ initialTab = "matches", initialView = "list" }: Ma
         </div>
     )
 }
+
