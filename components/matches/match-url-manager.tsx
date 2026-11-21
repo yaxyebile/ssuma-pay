@@ -14,7 +14,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Globe, Hash, Link2, Loader2, Save, Tv, Zap } from "lucide-react"
-import type { MatchSource } from "@/lib/match-types"
 
 const PLAYER_STATUS_OPTIONS = [
     { value: "player", label: "Player" },
@@ -81,7 +80,6 @@ function resolvedCategory5Value(mode: string, customUrl: string): string {
 
 export function MatchUrlManager() {
     const [singleId, setSingleId] = useState("")
-    const [singleSource, setSingleSource] = useState<MatchSource>("orangegas")
     const [singleMode, setSingleMode] = useState("bein1")
     const [singleCustomUrl, setSingleCustomUrl] = useState("")
     const [singleStatus, setSingleStatus] = useState("token")
@@ -118,7 +116,7 @@ export function MatchUrlManager() {
 
         setSingleSubmitting(true)
         try {
-            const res = await updateMatchCategory5ById(singleId.trim(), category5_url, singleStatus, singleSource)
+            const res = await updateMatchCategory5ById(singleId.trim(), category5_url, singleStatus)
             if (res.success) {
                 toast.success(res.message || `Match ID ${singleId} updated successfully!`)
             } else {
@@ -208,19 +206,6 @@ export function MatchUrlManager() {
                                     className="h-11 rounded-xl border-orange-100 font-bold"
                                     required
                                 />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label className="text-xs font-black uppercase tracking-widest text-gray-500">Match endpoint</Label>
-                                <Select value={singleSource} onValueChange={(value) => setSingleSource(value as MatchSource)}>
-                                    <SelectTrigger className="h-11 rounded-xl border-orange-100 font-bold">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-xl">
-                                        <SelectItem value="orangegas" className="font-bold">Orangegas matches</SelectItem>
-                                        <SelectItem value="zentova" className="font-bold">Zentova matches</SelectItem>
-                                    </SelectContent>
-                                </Select>
                             </div>
 
                             <Category5Picker
