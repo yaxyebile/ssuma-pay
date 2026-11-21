@@ -1,6 +1,6 @@
 "use server"
 
-const API_KEY = process.env.MATCHES_API_KEY
+const API_KEY = process.env.TEAMS_API_KEY
 const TEAMS_URL = "https://zentova.net/teams.php"
 
 const BROWSER_HEADERS = {
@@ -74,3 +74,4 @@ export async function editTeam(id: number | string, name: string, logo: string) 
         return { success: false, error: "Failed to update team" }
     }
 }
+
