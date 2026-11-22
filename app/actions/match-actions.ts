@@ -1,6 +1,6 @@
 "use server"
 
-import type { MatchSource } from "@/lib/match-types"
+import type { MatchSource, MatchSourceIds } from "@/lib/match-types"
 
 type MatchEndpoint = {
     url: string
@@ -51,8 +51,59 @@ function resolveLogo(value: unknown, base: string): string {
 
 function stripMatchSource(data: any) {
     if (!data || typeof data !== "object" || Array.isArray(data)) return data
-    const { source: _source, ...apiData } = data
+    const {
+        source: _source,
+        sources: _sources,
+        sourceIds: _sourceIds,
+        sourceRecords: _sourceRecords,
+        ...apiData
+    } = data
     return apiData
+}
+
+function normalizeIdentityPart(value: unknown): string {
+    return typeof value === "string" || typeof value === "number"
+        ? String(value).trim().toLowerCase().replace(/\s+/g, " ")
+        : ""
+}
+
+function matchIdentity(match: any): string | null {
+    const team1 = normalizeIdentityPart(match.team1_name)
+    const team2 = normalizeIdentityPart(match.team2_name)
+    const date = normalizeIdentityPart(match.date)
+    const time = normalizeIdentityPart(match.match_time).replace(/(\d{1,2}:\d{2}):00$/, "$1")
+    if (!team1 || !team2 || !date) return null
+    return [date, time, ...[team1, team2].sort()].join("|")
+}
+
+function mergeMatches(matches: any[]) {
+    const merged: any[] = []
+    const byIdentity = new Map<string, any>()
+
+    for (const match of matches) {
+        const identity = matchIdentity(match)
+        const existing = identity ? byIdentity.get(identity) : undefined
+        const source = match.source as MatchSource
+
+        if (existing && !existing.sources.includes(source)) {
+            existing.sources = [...existing.sources, source]
+            existing.sourceIds = { ...existing.sourceIds, ...match.sourceIds }
+            existing.sourceRecords = { ...existing.sourceRecords, ...match.sourceRecords }
+            for (const [key, value] of Object.entries(match)) {
+                if (["source", "sources", "sourceIds", "sourceRecords"].includes(key)) continue
+                if ((existing[key] === undefined || existing[key] === null || existing[key] === "") && value !== "") {
+                    existing[key] = value
+                }
+            }
+            continue
+        }
+
+        const entry = { ...match }
+        merged.push(entry)
+        if (identity && !byIdentity.has(identity)) byIdentity.set(identity, entry)
+    }
+
+    return merged
 }
 
 async function fetchMatchesFrom(source: MatchSource) {
@@ -83,6 +134,9 @@ async function fetchMatchesFrom(source: MatchSource) {
             matches: data.matches.map((match: any) => ({
                 ...match,
                 source,
+                sources: [source],
+                sourceIds: { [source]: match.id },
+                sourceRecords: { [source]: { ...match } },
                 team1_logo: resolveLogo(match.team1_logo, endpoint.logoBase),
                 team2_logo: resolveLogo(match.team2_logo, endpoint.logoBase),
             })),
@@ -111,6 +165,32 @@ async function sendMatchAction(source: MatchSource, payload: Record<string, unkn
     }
 }
 
+function matchTargets(id: string | number, source: MatchSource, sourceIds?: MatchSourceIds) {
+    const targets = MATCH_SOURCES.flatMap((matchSource) => {
+        const sourceId = sourceIds?.[matchSource]
+        return sourceId === undefined || sourceId === null ? [] : [{ source: matchSource, id: sourceId }]
+    })
+    return targets.length ? targets : [{ source, id }]
+}
+
+function summarizeEndpointResults(
+    results: Array<{ source: MatchSource; result: any }>,
+    action: string,
+) {
+    const succeeded = results.filter(({ result }) => result.success)
+    const failed = results.filter(({ result }) => !result.success)
+    if (failed.length === 0) {
+        return { success: true, message: `Match ${action} on ${succeeded.map(({ source }) => source).join(" and ")}.` }
+    }
+    const failureDetails = failed.map(({ source, result }) => `${source}: ${result.message || "request failed"}`).join(" ")
+    if (succeeded.length === 0) return { success: false, message: failureDetails }
+    return {
+        success: false,
+        partial: true,
+        message: `Match ${action} on ${succeeded.map(({ source }) => source).join(" and ")}, but failed on ${failed.map(({ source }) => source).join(" and ")}. ${failureDetails}`,
+    }
+}
+
 export async function fetchMatches() {
     const results = await Promise.all(MATCH_SOURCES.map(fetchMatchesFrom))
     const available = results.filter((result) => Array.isArray(result.matches))
@@ -122,16 +202,29 @@ export async function fetchMatches() {
 
     return {
         success: true,
-        matches: available.flatMap((result) => result.matches ?? []),
+        matches: mergeMatches(available.flatMap((result) => result.matches ?? [])),
         ...(warnings.length ? { warnings } : {}),
     }
 }
 
 export async function addMatch(data: any) {
-    const results = await Promise.all(MATCH_SOURCES.map(async (source) => ({
-        source,
-        result: await sendMatchAction(source, { action: "add", data: stripMatchSource(data) }, "Failed to add match"),
-    })))
+    const identity = matchIdentity(data)
+    const results = await Promise.all(MATCH_SOURCES.map(async (source) => {
+        const existing = await fetchMatchesFrom(source)
+        if (!Array.isArray(existing.matches)) {
+            return { source, alreadyPresent: false, result: { success: false, message: existing.error } }
+        }
+
+        if (identity && existing.matches.some((match) => matchIdentity(match) === identity)) {
+            return { source, alreadyPresent: true, result: { success: true } }
+        }
+
+        return {
+            source,
+            alreadyPresent: false,
+            result: await sendMatchAction(source, { action: "add", data: stripMatchSource(data) }, "Failed to add match"),
+        }
+    }))
     const succeeded = results.filter(({ result }) => result.success).map(({ source }) => source)
     const failed = results.filter(({ result }) => !result.success).map(({ source, result }) => ({
         source,
@@ -139,7 +232,11 @@ export async function addMatch(data: any) {
     }))
 
     if (failed.length === 0) {
-        return { success: true, message: "Match added to both endpoints." }
+        const added = results.filter((result) => !result.alreadyPresent).length
+        return {
+            success: true,
+            message: added === 0 ? "Match is already present on both endpoints." : "Match is available on both endpoints.",
+        }
     }
 
     if (succeeded.length === 0) {
@@ -154,7 +251,26 @@ export async function addMatch(data: any) {
 }
 
 export async function updateMatch(id: number | string, data: any, source: MatchSource = "orangegas") {
-    return sendMatchAction(source, { action: "update", id, data: stripMatchSource(data) }, "Failed to update match")
+    const targets = matchTargets(id, source, data?.sourceIds)
+    const sourceRecords = data?.sourceRecords ?? {}
+    const changes = stripMatchSource(data)
+    const results = await Promise.all(targets.map(async (target) => {
+        const sourceRecord = sourceRecords[target.source]
+        const targetData = {
+            ...(sourceRecord ? stripMatchSource(sourceRecord) : {}),
+            ...changes,
+            id: target.id,
+        }
+        return {
+            source: target.source,
+            result: await sendMatchAction(target.source, {
+                action: "update",
+                id: target.id,
+                data: targetData,
+            }, "Failed to update match"),
+        }
+    }))
+    return summarizeEndpointResults(results, "updated")
 }
 
 export async function updateMatchCategory5ById(
@@ -166,7 +282,10 @@ export async function updateMatchCategory5ById(
     if (!list.success || !Array.isArray(list.matches)) {
         return { success: false, message: list.error || "Failed to load matches" }
     }
-    const matches = list.matches.filter((item: any) => String(item.id) === String(id))
+    const matches = list.matches.filter((item: any) =>
+        String(item.id) === String(id) ||
+        Object.values(item.sourceIds ?? {}).some((sourceId) => String(sourceId) === String(id))
+    )
     if (matches.length === 0) {
         return { success: false, message: `Match ${id} was not found.` }
     }
@@ -215,7 +334,16 @@ export async function bulkUpdateMatchCategory5(category5_url: string, STATUS: st
     return { success: true, message: "All matches updated successfully!", count: updated }
 }
 
-export async function deleteMatch(id: number | string, source: MatchSource = "orangegas") {
-    return sendMatchAction(source, { action: "delete", id }, "Failed to delete match")
+export async function deleteMatch(
+    id: number | string,
+    source: MatchSource = "orangegas",
+    sourceIds?: MatchSourceIds,
+) {
+    const targets = matchTargets(id, source, sourceIds)
+    const results = await Promise.all(targets.map(async (target) => ({
+        source: target.source,
+        result: await sendMatchAction(target.source, { action: "delete", id: target.id }, "Failed to delete match"),
+    })))
+    return summarizeEndpointResults(results, "deleted")
 }
 
