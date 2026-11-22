@@ -10,7 +10,7 @@ import { fetchTeams } from "@/app/actions/team-actions"
 import { fetchMatches } from "@/app/actions/match-actions"
 import { toast } from "sonner"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import type { MatchSource } from "@/lib/match-types"
+import type { MatchSource, MatchSourceIds, MatchSourceRecords } from "@/lib/match-types"
 
 export interface Team {
     id: string | number
@@ -21,6 +21,9 @@ export interface Team {
 export interface Match {
     id: string | number
     source?: MatchSource
+    sources?: MatchSource[]
+    sourceIds?: MatchSourceIds
+    sourceRecords?: MatchSourceRecords
     team1_name: string
     team1_logo: string
     team2_name: string
