@@ -179,7 +179,11 @@ export function MatchForm({ teams, onSuccess, editingMatch, onCancelEdit }: Matc
         try {
             let res
             if (editingMatch) {
-                res = await updateMatch(editingMatch.id, values, editingMatch.source ?? "orangegas")
+                res = await updateMatch(editingMatch.id, {
+                    ...values,
+                    sourceIds: editingMatch.sourceIds,
+                    sourceRecords: editingMatch.sourceRecords,
+                }, editingMatch.source ?? "orangegas")
             } else {
                 res = await addMatch(values)
             }
@@ -230,7 +234,7 @@ export function MatchForm({ teams, onSuccess, editingMatch, onCancelEdit }: Matc
 
                     {editingMatch && (
                         <p className="text-xs font-bold uppercase tracking-widest text-orange-600">
-                            Editing from {editingMatch.source === "zentova" ? "Zentova" : "Orangegas"}
+                            Editing from {(editingMatch.sources ?? [editingMatch.source ?? "orangegas"]).map((source) => source === "zentova" ? "Zentova" : "Orangegas").join(" + ")}
                         </p>
                     )}
 
