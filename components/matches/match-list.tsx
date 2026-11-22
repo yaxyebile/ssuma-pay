@@ -83,7 +83,7 @@ export function MatchList({ matches, loading, onRefresh, onEdit }: MatchListProp
         if (!confirm("Are you sure you want to delete this match?")) return
         setDeletingId(`${match.source ?? "orangegas"}:${match.id}`)
         try {
-            const res = await deleteMatch(match.id, match.source ?? "orangegas")
+            const res = await deleteMatch(match.id, match.source ?? "orangegas", match.sourceIds)
             if (res.success) {
                 toast.success("Match deleted")
                 onRefresh()
@@ -182,7 +182,7 @@ export function MatchList({ matches, loading, onRefresh, onEdit }: MatchListProp
                                                         <Clock className="h-3 w-3" /> {match.match_time}
                                                     </div>
                                                     <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-gray-500">
-                                                        {match.source === "zentova" ? "Zentova" : "Orangegas"}
+                                                        {(match.sources ?? [match.source ?? "orangegas"]).map((source) => source === "zentova" ? "Zentova" : "Orangegas").join(" + ")}
                                                     </span>
                                                 </div>
                                             </div>
